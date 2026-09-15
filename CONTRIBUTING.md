@@ -17,8 +17,9 @@ sh scripts/setup_hooks.sh
 
 Do this for every clone. Git does not install repository hooks automatically.
 The setup script also sets this clone's publication identity to
-`Xyle Labs <jesse@xyle.de>`. This is the owner-approved public contact address
-for commits, package metadata, and project communication. Other personal
+`Xyle Labs <no-reply@xyle.de>`. This exact email is approved for commits.
+`jesse@xyle.de` remains the public contact for package metadata and project
+communication, and remains approved in existing and future commits. Other personal
 author/committer identities are rejected; the exact GitHub automation identities
 in `scripts/check_repo.py` are allowed. GitHub account
 profiles and PR activity are separate from Git metadata and may identify users.
@@ -26,7 +27,10 @@ profiles and PR activity are separate from Git metadata and may identify users.
 GitHub can generate test-merge commits when a PR is opened, using account
 settings rather than this clone's Git identity. Before opening a PR or using
 web-based commits, verify that the account-generated author identity is
-`Xyle Labs <jesse@xyle.de>`. Local hooks do not control those commits. Until
+`Xyle Labs <no-reply@xyle.de>` or the explicitly approved
+`Jesse <no-reply@xyle.de>`, with the email verified and primary on GitHub.
+Adding an address to the account alone does not establish that identity.
+Local hooks do not control those commits. Until
 the account is configured, track changes as issues and reviewed local branches;
 do not weaken the history guard to admit an unapproved identity.
 

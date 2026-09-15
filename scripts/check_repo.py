@@ -34,12 +34,15 @@ PRIVATE_GLOBS = (
 CLAUDE = re.compile(r"^co-authored-by:\s*.*(?:\bclaude\b|@anthropic\.com)", re.IGNORECASE | re.MULTILINE)
 EMAIL = re.compile(r"[\w.+%-]+(?:\[bot\])?@(?:[\w-]+\.)+[a-zA-Z]{2,}")
 PUBLIC_EMAILS = {
-    "jesse@xyle.de", "noreply@github.com", "noreply@anthropic.com", "support@github.com",
+    "jesse@xyle.de", "no-reply@xyle.de",
+    "noreply@github.com", "noreply@anthropic.com", "support@github.com",
     "49699333+dependabot[bot]@users.noreply.github.com",
 }
 # Exact automation identities and the project's approved publication identity.
 PUBLIC_IDENTITIES = {
-    "Xyle Labs <jesse@xyle.de>", "GitHub <noreply@github.com>",
+    "Xyle Labs <jesse@xyle.de>", "Xyle Labs <no-reply@xyle.de>",
+    "Jesse <no-reply@xyle.de>",
+    "GitHub <noreply@github.com>",
     "dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
 }
 CONTENT_RULES = {

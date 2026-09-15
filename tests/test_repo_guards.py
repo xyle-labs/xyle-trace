@@ -46,20 +46,36 @@ def test_source_and_placeholder_env_are_allowed(repo):
     assert check(repo, "--staged").returncode == 0
 
 
-def test_approved_contact_is_allowed_in_content_messages_and_history(repo):
-    subprocess.run(["git", "config", "user.email", "jesse@xyle.de"], cwd=repo, check=True)
-    (repo / "contact.md").write_text("Contact: [jesse@xyle.de](mailto:jesse@xyle.de)")
+@pytest.mark.parametrize("name,email", [
+    ("Xyle Labs", "jesse@xyle.de"),
+    ("Xyle Labs", "no-reply@xyle.de"),
+    ("Jesse", "no-reply@xyle.de"),
+])
+def test_approved_contact_is_allowed_in_content_messages_and_history(repo, name, email):
+    subprocess.run(["git", "config", "user.name", name], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.email", email], cwd=repo, check=True)
+    (repo / "contact.md").write_text(f"Contact: [{email}](mailto:{email})")
     subprocess.run(["git", "add", "."], cwd=repo, check=True)
     assert check(repo, "--staged").returncode == 0
     assert check(repo, "--commit-msg", str(repo / "contact.md")).returncode == 0
     subprocess.run(["git", "-c", "commit.gpgsign=false", "commit", "-qm",
-                    "Contact: jesse@xyle.de"], cwd=repo, check=True)
+                    f"Contact: {email}"], cwd=repo, check=True)
     assert check(repo, "--history").returncode == 0
 
 
 def test_former_project_email_is_rejected(repo):
     subprocess.run(["git", "config", "user.email", "noreply@" + "xyle.de"],
                    cwd=repo, check=True)
+    assert check(repo, "--staged").returncode == 1
+
+
+@pytest.mark.parametrize("name,email", [
+    ("Fixture Person", "no-reply@xyle.de"),
+    ("Jesse", "jesse@xyle.de"),
+])
+def test_approved_email_does_not_allow_an_unapproved_author_identity(repo, name, email):
+    subprocess.run(["git", "config", "user.email", email], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.name", name], cwd=repo, check=True)
     assert check(repo, "--staged").returncode == 1
 
 
@@ -85,6 +101,7 @@ def test_commit_attribution_preserves_human_coauthors(repo, author, expected):
 @pytest.mark.parametrize("content", [
     "contact: " + "private.person@" + "mail.invalid",
     "contact: " + "jesse@xyle.de" + ".invalid",
+    "contact: " + "no-reply@xyle.de" + ".invalid",
     "/" + "Users/fixture-person/private/file",
     "C:" + "\\Users\\fixture-person\\file",
     "https://" + "claude.ai/share/fixture-session",

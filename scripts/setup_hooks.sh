@@ -11,5 +11,5 @@ command -v gitleaks >/dev/null 2>&1 || {
 gitleaks version
 git config --local core.hooksPath .githooks
 git config --local user.name 'Xyle Labs'
-git config --local user.email 'jesse@xyle.de'
+git config --local user.email 'no-reply@xyle.de'
 echo "Hooks enabled; commits use the project's approved publication identity."

@@ -4,9 +4,14 @@ Reviewed 2026-09-15. This review covers `xyle-labs/xyle-trace` and its
 publication safeguards. It does not cover unrelated projects or copies held
 outside this repository.
 
-The owner has explicitly approved `jesse@xyle.de` for all public project use.
-Git authors and committers use `Xyle Labs <jesse@xyle.de>`. Package metadata,
-plugin metadata, and documentation use the same contact address.
+The owner has explicitly approved `jesse@xyle.de` for all public project use
+and `no-reply@xyle.de` for commits. New local Git authors and committers use
+`Xyle Labs <no-reply@xyle.de>`; the earlier approved identity remains allowed.
+Package metadata, plugin metadata, and documentation retain `jesse@xyle.de`
+as the public contact. The exact identity `Jesse <no-reply@xyle.de>` is also
+approved for GitHub-generated commits. The owner has added that email to the
+account but has not yet made it primary; that remains a prerequisite before
+opening PRs or generating web commits.
 
 ## Clean publication history
 
