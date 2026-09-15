@@ -1,0 +1,4 @@
+[
+  {"key": "A", "data": {"sample": "A", "value": 10, "unit": "count"}},
+  {"key": "B", "data": {"sample": "B", "value": 20, "unit": "count"}}
+]

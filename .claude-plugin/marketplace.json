@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "xyle-trace",
+  "description": "Agent-native data lineage and provenance toolkit: record sources, snapshots, transformations, and evidence-backed claims as a queryable graph.",
+  "owner": {
+    "name": "Xyle Labs",
+    "email": "jesse@xyle.de"
+  },
+  "plugins": [
+    {
+      "name": "xyle-trace",
+      "description": "Agent-native data lineage and provenance toolkit: record sources, snapshots, transformations, and evidence-backed claims as a queryable graph.",
+      "author": {
+        "name": "Xyle Labs",
+        "email": "jesse@xyle.de"
+      },
+      "category": "data",
+      "source": "./",
+      "homepage": "https://github.com/xyle-labs/xyle-trace"
+    }
+  ]
+}

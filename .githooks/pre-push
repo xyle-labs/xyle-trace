@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+cd "$(git rev-parse --show-toplevel)"
+PATH="$PWD/.venv/bin:$PATH"
+export PATH
+python3 scripts/check_repo.py --history
+command -v gitleaks >/dev/null 2>&1 || { echo "Install gitleaks before pushing; see CONTRIBUTING.md." >&2; exit 1; }
+gitleaks git --redact --no-banner --config .gitleaks.toml --log-opts=--all \
+    --ignore-gitleaks-allow --max-decode-depth=3 --max-archive-depth=3
+messages=$(mktemp)
+trap 'rm -f "$messages"' EXIT HUP INT TERM
+git log --all --format=fuller > "$messages"
+git for-each-ref --format='%(refname)%0a%(taggername) %(taggeremail)%0a%(contents)' >> "$messages"
+# Include checkpoint trees, direct blob refs, and dangling staged objects that
+# Git's normal commit traversal omits. The temporary file is private and removed.
+git cat-file --batch-all-objects --batch >> "$messages"
+gitleaks stdin --redact --no-banner --config .gitleaks.toml \
+    --ignore-gitleaks-allow --max-decode-depth=3 < "$messages"

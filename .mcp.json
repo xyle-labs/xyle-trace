@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "xyle_trace": {
+      "type": "stdio",
+      "command": "xyle-trace-mcp"
+    }
+  }
+}

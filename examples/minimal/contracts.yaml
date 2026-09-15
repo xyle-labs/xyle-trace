@@ -1,0 +1,5 @@
+- dataset: observations
+  require:
+    every_row: [evidence_backed, assumption_backed]
+    evidence: exact_locator
+  blocks: [analysis.*]

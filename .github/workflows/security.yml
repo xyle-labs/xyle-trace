@@ -1,0 +1,66 @@
+name: Security
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "23 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    name: secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install verified Gitleaks release
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          curl --fail --silent --show-error --location --retry 3 \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            -o "$RUNNER_TEMP/gitleaks.tar.gz"
+          echo "$GITLEAKS_SHA256  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+      - name: Scan every reachable commit (redacted)
+        run: >-
+          "$RUNNER_TEMP/gitleaks" git --redact --no-banner
+          --config .gitleaks.toml --log-opts=--all
+          --ignore-gitleaks-allow --max-decode-depth=3 --max-archive-depth=3
+      - name: Scan commit metadata (redacted)
+        shell: bash
+        run: |
+          git log --all --format=fuller > "$RUNNER_TEMP/git-metadata.txt"
+          git for-each-ref --format='%(refname)%0a%(taggername) %(taggeremail)%0a%(contents)' >> "$RUNNER_TEMP/git-metadata.txt"
+          git cat-file --batch-all-objects --batch >> "$RUNNER_TEMP/git-metadata.txt"
+          "$RUNNER_TEMP/gitleaks" stdin --redact --no-banner --config .gitleaks.toml \
+            --ignore-gitleaks-allow --max-decode-depth=3 < "$RUNNER_TEMP/git-metadata.txt"
+      - name: Check private paths, personal data, sessions, and identities in history
+        run: python3 scripts/check_repo.py --history
+
+  dependencies:
+    name: dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip setuptools
+      - run: python -m pip install -e ".[mcp]" "pip-audit==2.10.1"
+      - run: python -m pip check
+      - run: python -m pip_audit --skip-editable --progress-spinner off

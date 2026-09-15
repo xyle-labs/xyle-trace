@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+root=$(git rev-parse --show-toplevel)
+PATH="$root/.venv/bin:$PATH"
+export PATH
+python3 "$root/scripts/check_repo.py" --commit-msg "$1"
+command -v gitleaks >/dev/null 2>&1 || { echo "Install gitleaks before committing; see CONTRIBUTING.md." >&2; exit 1; }
+gitleaks stdin --redact --no-banner --config "$root/.gitleaks.toml" \
+    --ignore-gitleaks-allow --max-decode-depth=3 < "$1"
