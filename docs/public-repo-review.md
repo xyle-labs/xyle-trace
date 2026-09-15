@@ -11,9 +11,12 @@ Package metadata, plugin metadata, and documentation retain `jesse@xyle.de`
 as the public contact. The exact identity `Jesse <no-reply@xyle.de>` is also
 approved for GitHub-generated commits. The address is added to the account and
 must not become its primary email. Repository-local Git configuration controls
-local commits. A workflow for GitHub-generated commits that preserves an
-approved identity without changing the account's primary email remains to be
-validated; it is tracked in the publication issue.
+local commits. The owner also approves `Jesse <jesse@j-apps.com>`, the exact
+test-merge author observed for the GitHub account `Jesse-jApps` in
+[PR #13](https://github.com/xyle-labs/xyle-trace/pull/13). The history guard allows
+that identity and address explicitly. Local commits continue to use the project
+identity, and squash merges explicitly select `no-reply@xyle.de`; no account
+primary-email change is required.
 
 ## Clean publication history
 
@@ -30,8 +33,8 @@ tasks are migrated separately from Git. Dependency updates are tracked as
 issues with clean branches: opening PRs during migration caused GitHub to
 generate test-merge commits with an unapproved account email, which the history
 guard rejected. That intermediate repository was also archived privately.
-Account settings must use the approved project identity before generating PR
-merge commits or web-authored commits. The pre-publication verification recorded
+GitHub-generated commits must use an approved identity, including the
+owner-approved `Jesse-jApps` identity above. The pre-publication verification recorded
 in [#4](https://github.com/xyle-labs/xyle-trace/issues/4) found all 15 checked old
 or rejected commit IDs unavailable and the removed-example URL returning 404.
 A new repository does not erase internal backups or copies held elsewhere.
@@ -102,8 +105,8 @@ The following live GitHub settings were verified on 2026-09-15:
 ## Remaining release work
 
 The native protections previously unavailable under the private plan are now
-enabled. A validated GitHub-generated commit identity workflow, dependency
-update review, and package release remain tracked in
+enabled. The observed `Jesse-jApps` test-merge identity is now owner-approved.
+Dependency update review and package release remain tracked in
 [#4](https://github.com/xyle-labs/xyle-trace/issues/4). The PyPI project metadata
 endpoint returned 404 at review time; installation instructions use the public
 Git repository until a release exists. Public repository visibility does not

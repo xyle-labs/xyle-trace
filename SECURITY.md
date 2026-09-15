@@ -60,7 +60,9 @@ Local Git hooks and CI scan for credentials and reject private/generated paths.
 They also check unapproved personal email addresses, home paths, session links, conversation
 records, opaque files, and commit identities. New local commits use
 `Xyle Labs <no-reply@xyle.de>`; `jesse@xyle.de` remains the approved public
-contact and its existing project identity remains allowed. Setup instructions
+contact and its existing project identity remains allowed. The owner also
+approves `Jesse <jesse@j-apps.com>` for the GitHub account `Jesse-jApps`, including
+GitHub-generated test-merge commits. Setup instructions
 configure the commit identity in each clone. History scans
 include local checkpoint trees, and credential checks inspect the local Git
 object database as well as ordinary commits. See `docs/public-repo-review.md`
