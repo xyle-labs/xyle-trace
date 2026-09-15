@@ -498,8 +498,8 @@ Install from this repository with `pip install '.[mcp]'` (or `'.[dev,mcp]'` for
 tests). The base package does not require the SDK. In Claude Code, the
 [plugin route](agent-setup.md#choose-an-install-route) (`/plugin marketplace add
 xyle-labs/xyle-trace` then `/plugin install xyle-trace`) installs the
-five skills and wires `/mcp` in one step, but still requires `pip install
-'xyle-trace[mcp]'` separately so `xyle-trace-mcp` resolves on `PATH` — a
+five skills and wires `/mcp` in one step, but still requires the separate
+[Python package installation](quickstart.md#1-install) so `xyle-trace-mcp` resolves on `PATH` — a
 plugin has no build step. Both entry points serve stdio directly:
 
 ```bash

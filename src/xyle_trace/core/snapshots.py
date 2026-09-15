@@ -139,6 +139,7 @@ def public_http(url: str, timeout: float):
         connection.sock.connect(sockaddr)
         if parsed.scheme == "https":
             context = ssl.create_default_context()
+            context.minimum_version = ssl.TLSVersion.TLSv1_2
             context.set_alpn_protocols(["http/1.1"])
             connection.sock = context.wrap_socket(connection.sock, server_hostname=host)
         target = urlunsplit(("", "", parsed.path or "/", parsed.query, ""))
