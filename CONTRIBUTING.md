@@ -24,15 +24,18 @@ author/committer identities are rejected; the exact GitHub automation identities
 in `scripts/check_repo.py` are allowed. GitHub account
 profiles and PR activity are separate from Git metadata and may identify users.
 
+The project's commit address does not need to be the account's primary GitHub
+email. Keep the account's primary email unchanged; the setup script configures
+only this clone.
+
 GitHub can generate test-merge commits when a PR is opened, using account
-settings rather than this clone's Git identity. Before opening a PR or using
-web-based commits, verify that the account-generated author identity is
-`Xyle Labs <no-reply@xyle.de>` or the explicitly approved
-`Jesse <no-reply@xyle.de>`, with the email verified and primary on GitHub.
-Adding an address to the account alone does not establish that identity.
-Local hooks do not control those commits. Until
-the account is configured, track changes as issues and reviewed local branches;
-do not weaken the history guard to admit an unapproved identity.
+settings rather than this clone's Git identity. Local hooks do not control
+those commits. A workflow that produces an approved identity for GitHub-generated
+commits without changing the account's primary email still needs validation;
+track that work in [#4](https://github.com/xyle-labs/xyle-trace/issues/4).
+Until then, use issues and reviewed local branches. The exact identities
+`Xyle Labs <no-reply@xyle.de>` and `Jesse <no-reply@xyle.de>` are approved;
+do not weaken the history guard to admit other identities.
 
 The pre-commit hook checks the actual index and scans staged content with Gitleaks;
 the pre-push hook scans all reachable history, including secrets deleted by a

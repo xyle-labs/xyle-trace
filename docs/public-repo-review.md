@@ -9,9 +9,11 @@ and `no-reply@xyle.de` for commits. New local Git authors and committers use
 `Xyle Labs <no-reply@xyle.de>`; the earlier approved identity remains allowed.
 Package metadata, plugin metadata, and documentation retain `jesse@xyle.de`
 as the public contact. The exact identity `Jesse <no-reply@xyle.de>` is also
-approved for GitHub-generated commits. The owner has added that email to the
-account but has not yet made it primary; that remains a prerequisite before
-opening PRs or generating web commits.
+approved for GitHub-generated commits. The address is added to the account and
+must not become its primary email. Repository-local Git configuration controls
+local commits. A workflow for GitHub-generated commits that preserves an
+approved identity without changing the account's primary email remains to be
+validated; it is tracked in the publication issue.
 
 ## Clean publication history
 
