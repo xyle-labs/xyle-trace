@@ -1,8 +1,8 @@
 # Public repository privacy review
 
-Reviewed 2026-09-15. This review covers `xyle-labs/xyle-trace` and its
-publication safeguards. It does not cover unrelated projects or copies held
-outside this repository.
+Reviewed 2026-09-15. The repository is now public. This review covers
+`xyle-labs/xyle-trace` and its publication safeguards. It does not cover unrelated
+projects or copies held outside this repository.
 
 The owner has explicitly approved `jesse@xyle.de` for all public project use
 and `no-reply@xyle.de` for commits. New local Git authors and committers use
@@ -11,9 +11,12 @@ Package metadata, plugin metadata, and documentation retain `jesse@xyle.de`
 as the public contact. The exact identity `Jesse <no-reply@xyle.de>` is also
 approved for GitHub-generated commits. The address is added to the account and
 must not become its primary email. Repository-local Git configuration controls
-local commits. A workflow for GitHub-generated commits that preserves an
-approved identity without changing the account's primary email remains to be
-validated; it is tracked in the publication issue.
+local commits. The owner also approves `Jesse <jesse@j-apps.com>`, the exact
+test-merge author observed for the GitHub account `Jesse-jApps` in
+[PR #13](https://github.com/xyle-labs/xyle-trace/pull/13). The history guard allows
+that identity and address explicitly. Local commits continue to use the project
+identity, and squash merges explicitly select `no-reply@xyle.de`; no account
+primary-email change is required.
 
 ## Clean publication history
 
@@ -30,10 +33,11 @@ tasks are migrated separately from Git. Dependency updates are tracked as
 issues with clean branches: opening PRs during migration caused GitHub to
 generate test-merge commits with an unapproved account email, which the history
 guard rejected. That intermediate repository was also archived privately.
-Account settings must use the approved project identity before generating PR
-merge commits or web-authored commits. Verify rejection of old commit
-IDs in the replacement before publication. A new repository does not erase
-internal backups or copies held elsewhere.
+GitHub-generated commits must use an approved identity, including the
+owner-approved `Jesse-jApps` identity above. The pre-publication verification recorded
+in [#4](https://github.com/xyle-labs/xyle-trace/issues/4) found all 15 checked old
+or rejected commit IDs unavailable and the removed-example URL returning 404.
+A new repository does not erase internal backups or copies held elsewhere.
 
 ## Safeguards
 
@@ -72,25 +76,41 @@ security checks. Wheel and source distributions were inspected (43 wheel files,
 117 source-distribution files). Local policy and credential checks passed.
 Hook probes rejected synthetic credentials, private paths, personal data,
 secret commit messages, inline suppression, and secrets deleted in later commits.
-Fresh remote scans and CI must pass again after recreation.
+After recreation, [main CI](https://github.com/xyle-labs/xyle-trace/actions/runs/34930433487)
+and [Security](https://github.com/xyle-labs/xyle-trace/actions/runs/34930433434)
+passed. The post-publication local baseline passed 493 tests, Ruff, and the
+history policy scan. GitHub reported no secret-scanning or dependency alerts
+at review time. CodeQL reported one TLS protocol finding; HTTPS capture now
+explicitly requires TLS 1.2 or newer, with regression coverage for the protocol
+floor and certificate/hostname verification. GitHub must rescan the merged fix
+before the alert can be considered resolved there.
 
-## Publication gate
+## Verified public repository protections
 
-Keep the replacement private until its contents and old-commit rejection have
-been verified. Preserve read-only workflow permissions, SHA-pin requirements,
-and restricted action sources when restoring repository settings.
+The following live GitHub settings were verified on 2026-09-15:
 
-When the plan or visibility permits:
+- Secret scanning and push protection are enabled.
+- [The active main ruleset](https://github.com/xyle-labs/xyle-trace/rules/23409837)
+  matches [the maintained policy](../.github/main-ruleset.json): PRs, linear
+  history, resolved review threads, and all six CI/security checks are required;
+  force pushes and deletion are blocked, with no bypass actors. The required
+  approving-review count is zero.
+- Private vulnerability reporting is enabled. Workflows from all external
+  contributors require approval.
+- Actions are limited to GitHub-owned actions, SHA pins are mandatory, workflow
+  tokens default to read-only, and workflows cannot approve PRs.
+- CodeQL default setup is enabled for Python and Actions with the extended query
+  suite and a weekly schedule.
 
-1. Enable and verify repository secret scanning and push protection.
-2. Apply [the main ruleset](../.github/main-ruleset.json) and verify its required
-   CI/security checks and enforcement.
-3. Enable private vulnerability reporting and approval for external fork
-   workflows.
+## Remaining release work
 
-These native protections were unavailable under the existing private plan.
-Repository recreation itself does not authorize a visibility change or a
-package release. Open release work is tracked in [#4](https://github.com/xyle-labs/xyle-trace/issues/4).
+The native protections previously unavailable under the private plan are now
+enabled. The observed `Jesse-jApps` test-merge identity is now owner-approved.
+Dependency update review and package release remain tracked in
+[#4](https://github.com/xyle-labs/xyle-trace/issues/4). The PyPI project metadata
+endpoint returned 404 at review time; installation instructions use the public
+Git repository until a release exists. Public repository visibility does not
+itself authorize publishing a package.
 
 References: [Gitleaks](https://github.com/gitleaks/gitleaks),
 [GitHub secret scanning scope](https://docs.github.com/en/code-security/reference/secret-security/secret-scanning-scope),

@@ -28,10 +28,10 @@ in how much the host automates and in what still has to be run by hand.
    (equivalently, `claude plugin marketplace add xyle-labs/xyle-trace`
    and `claude plugin install xyle-trace` outside an interactive session).
    This installs the five skills and wires `/mcp` in one step, but it does not
-   install the Python package: run `pip install 'xyle-trace[mcp]'` (or
-   `pipx install 'xyle-trace[mcp]'`) first, in whatever environment the host
-   process inherits, so `xyle-trace-mcp` resolves on `PATH` — a plugin has no
-   build step and cannot ship its own virtualenv.
+   install the Python package: follow the [quickstart installation](quickstart.md#1-install)
+   first, in whatever environment the host process inherits, so `xyle-trace-mcp`
+   resolves on `PATH` — a plugin has no build step and cannot ship its own
+   virtualenv. The package is not yet released on PyPI.
 
    A globally installed plugin cannot pass a project's `--project`/`--db`/
    `--root`/`--contracts` flags, since it does not know which project a given

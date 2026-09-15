@@ -19,8 +19,10 @@ Do this for every clone. Git does not install repository hooks automatically.
 The setup script also sets this clone's publication identity to
 `Xyle Labs <no-reply@xyle.de>`. This exact email is approved for commits.
 `jesse@xyle.de` remains the public contact for package metadata and project
-communication, and remains approved in existing and future commits. Other personal
-author/committer identities are rejected; the exact GitHub automation identities
+communication, and remains approved in existing and future commits. The owner
+also approves `Jesse <jesse@j-apps.com>`, the Git author identity GitHub associates
+with `Jesse-jApps`. Other personal author/committer identities are rejected;
+the exact GitHub automation identities
 in `scripts/check_repo.py` are allowed. GitHub account
 profiles and PR activity are separate from Git metadata and may identify users.
 
@@ -30,12 +32,13 @@ only this clone.
 
 GitHub can generate test-merge commits when a PR is opened, using account
 settings rather than this clone's Git identity. Local hooks do not control
-those commits. A workflow that produces an approved identity for GitHub-generated
-commits without changing the account's primary email still needs validation;
-track that work in [#4](https://github.com/xyle-labs/xyle-trace/issues/4).
-Until then, use issues and reviewed local branches. The exact identities
-`Xyle Labs <no-reply@xyle.de>` and `Jesse <no-reply@xyle.de>` are approved;
-do not weaken the history guard to admit other identities.
+those commits. The observed test-merge author for `Jesse-jApps` is
+`Jesse <jesse@j-apps.com>`; that exact identity and email are owner-approved in
+`scripts/check_repo.py`. PRs can use the protected workflow with this account.
+For squash merges, explicitly select `no-reply@xyle.de` as the author email
+(`gh pr merge --squash --author-email no-reply@xyle.de`). The exact identities
+`Xyle Labs <no-reply@xyle.de>` and `Jesse <no-reply@xyle.de>` remain approved.
+Approval of one address does not approve other users or addresses on its domain.
 
 The pre-commit hook checks the actual index and scans staged content with Gitleaks;
 the pre-push hook scans all reachable history, including secrets deleted by a

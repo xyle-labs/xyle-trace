@@ -1,5 +1,6 @@
 import io
 import socket
+import ssl
 from contextlib import contextmanager
 
 import pytest
@@ -277,16 +278,20 @@ def test_default_transport_pins_dns_and_retains_host_and_tls_checks(tmp_path, mo
     monkeypatch.setattr(socket, "socket", lambda *args: sock)
     tls_hosts = []
 
-    class TLSContext:
-        def set_alpn_protocols(self, protocols):
-            assert protocols == ["http/1.1"]
+    tls_context = ssl.create_default_context()
+    # Prove the transport enforces its own floor even with permissive defaults.
+    tls_context.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
 
-        def wrap_socket(self, connection, *, server_hostname):
-            tls_hosts.append(server_hostname)
-            assert connection is sock
-            return connection
+    def wrap_socket(context, connection, *, server_hostname):
+        assert context.minimum_version >= ssl.TLSVersion.TLSv1_2
+        assert context.check_hostname
+        assert context.verify_mode == ssl.CERT_REQUIRED
+        tls_hosts.append(server_hostname)
+        assert connection is sock
+        return connection
 
-    monkeypatch.setattr(snapshots.ssl, "create_default_context", TLSContext)
+    monkeypatch.setattr(ssl, "create_default_context", lambda: tls_context)
+    monkeypatch.setattr(ssl.SSLContext, "wrap_socket", wrap_socket)
     monkeypatch.setenv("http_proxy", "http://secret:password@127.0.0.1:8888")
     monkeypatch.setenv("https_proxy", "http://secret:password@127.0.0.1:8888")
     result = SnapshotCapture(tmp_path).http(

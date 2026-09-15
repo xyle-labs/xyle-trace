@@ -50,6 +50,7 @@ def test_source_and_placeholder_env_are_allowed(repo):
     ("Xyle Labs", "jesse@xyle.de"),
     ("Xyle Labs", "no-reply@xyle.de"),
     ("Jesse", "no-reply@xyle.de"),
+    ("Jesse", "jesse@j-apps.com"),
 ])
 def test_approved_contact_is_allowed_in_content_messages_and_history(repo, name, email):
     subprocess.run(["git", "config", "user.name", name], cwd=repo, check=True)
@@ -72,6 +73,7 @@ def test_former_project_email_is_rejected(repo):
 @pytest.mark.parametrize("name,email", [
     ("Fixture Person", "no-reply@xyle.de"),
     ("Jesse", "jesse@xyle.de"),
+    ("Fixture Person", "jesse@j-apps.com"),
 ])
 def test_approved_email_does_not_allow_an_unapproved_author_identity(repo, name, email):
     subprocess.run(["git", "config", "user.email", email], cwd=repo, check=True)
@@ -102,6 +104,8 @@ def test_commit_attribution_preserves_human_coauthors(repo, author, expected):
     "contact: " + "private.person@" + "mail.invalid",
     "contact: " + "jesse@xyle.de" + ".invalid",
     "contact: " + "no-reply@xyle.de" + ".invalid",
+    "contact: " + "jesse@j-apps.com" + ".invalid",
+    "contact: " + "someone.else@" + "j-apps.com",
     "/" + "Users/fixture-person/private/file",
     "C:" + "\\Users\\fixture-person\\file",
     "https://" + "claude.ai/share/fixture-session",
