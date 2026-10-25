@@ -16,6 +16,15 @@ def _dependencies(store: Store, project_id: str) -> list[tuple[str, str]]:
         NodeType.SOURCE_SNAPSHOT: ("source_id", NodeType.SOURCE),
     }
     for node in nodes.values():
+        if node.type == NodeType.DECISION:
+            subjects = []
+            if node.data.get("kind") in {"methodology", "exclusion"}:
+                subjects = node.data.get("subject_ids", [])
+            elif node.data.get("kind") == "correction":
+                subjects = [item.get("dataset_id") for item in node.data.get("changes", [])]
+            for subject in subjects:
+                if isinstance(subject, str) and subject in nodes and subject != node.id:
+                    dependencies.append((subject, node.id))
         if node.type not in references:
             continue
         field, expected_type = references[node.type]

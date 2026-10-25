@@ -152,13 +152,16 @@ def execute(
                     node_id, {NodeType.DATASET, NodeType.ARTIFACT, NodeType.SOURCE_SNAPSHOT}
                 )
                 states[node_id] = service._run_state(node)
-                details = service.query({"mode": "explain", "node_id": node_id})
+                # Execution captures its direct current input. Presentation-level
+                # explanations may inspect an ancestor's historical execution.
+                details = service.query({"mode": "upstream", "node_id": node_id})
                 frozen[node_id] = {
                     "node": node.model_dump(mode="json"),
                     "records": [
                         row.model_dump(mode="json")
-                        for row in details.records
-                        if row.record.dataset_id == node_id
+                        for row in (
+                            service._record_states(node_id) if node.type == NodeType.DATASET else []
+                        )
                     ],
                     "lineage": details.model_dump(mode="json"),
                 }

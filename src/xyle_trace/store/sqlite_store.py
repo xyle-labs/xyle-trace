@@ -163,7 +163,7 @@ class Store:
                     edge.type.value,
                     edge.src,
                     edge.dst,
-                    json.dumps(edge.data),
+                    json.dumps(edge.data, allow_nan=False),
                     edge.created_at.isoformat(),
                 ),
             )
@@ -248,44 +248,73 @@ class Store:
         ]
 
     def put_resolution(self, resolution: Resolution) -> Resolution:
+        return self.put_resolutions([resolution])[0]
+
+    def put_resolutions(self, resolutions: list[Resolution]) -> list[Resolution]:
+        """Write a resolution batch atomically, reviewing each affected dataset once."""
+        result = []
+        reviewed = set()
         with self.transaction():
-            dataset_id = self._dataset_id(
-                resolution.project_id, resolution.dataset_id, required=True
-            )
-            resolution = resolution.model_copy(update={"dataset_id": dataset_id})
-            exists = self._conn.execute(
-                "SELECT 1 FROM records WHERE project_id = ? AND dataset_id = ? AND key = ?",
-                (resolution.project_id, dataset_id, resolution.record_key),
-            ).fetchone()
-            if not exists:
-                raise ValueError(f"record {resolution.record_key!r} does not exist")
-            previous = self.resolutions(resolution.project_id, dataset_id).get(
-                resolution.record_key
-            )
-            if previous and (previous.status, previous.target_id) == (
-                resolution.status,
-                resolution.target_id,
-            ):
-                return previous
-            self._review_downstream(resolution.project_id, dataset_id)
-            self._conn.execute(
-                """INSERT INTO resolutions
+            for resolution in resolutions:
+                dataset_id = self._dataset_id(
+                    resolution.project_id, resolution.dataset_id, required=True
+                )
+                resolution = resolution.model_copy(update={"dataset_id": dataset_id})
+                exists = self._conn.execute(
+                    "SELECT 1 FROM records WHERE project_id = ? AND dataset_id = ? AND key = ?",
+                    (resolution.project_id, dataset_id, resolution.record_key),
+                ).fetchone()
+                if not exists:
+                    raise ValueError(f"record {resolution.record_key!r} does not exist")
+                previous = self.get_resolution(
+                    resolution.project_id, dataset_id, resolution.record_key
+                )
+                if previous and (previous.status, previous.target_id) == (
+                    resolution.status,
+                    resolution.target_id,
+                ):
+                    result.append(previous)
+                    continue
+                scope = (resolution.project_id, dataset_id)
+                if scope not in reviewed:
+                    self._review_downstream(*scope)
+                    reviewed.add(scope)
+                self._conn.execute(
+                    """INSERT INTO resolutions
                    (project_id, dataset_id, record_key, status, target_id, created_at)
                VALUES (?, ?, ?, ?, ?, ?)
                ON CONFLICT (project_id, dataset_id, record_key) DO UPDATE SET
                    status = excluded.status,
                    target_id = excluded.target_id,
                    created_at = excluded.created_at""",
-                (
-                    resolution.project_id,
-                    resolution.dataset_id,
-                    resolution.record_key,
-                    resolution.status,
-                    resolution.target_id,
-                    resolution.created_at.isoformat(),
-                ),
-            )
-        return resolution
+                    (
+                        resolution.project_id,
+                        resolution.dataset_id,
+                        resolution.record_key,
+                        resolution.status,
+                        resolution.target_id,
+                        resolution.created_at.isoformat(),
+                    ),
+                )
+                result.append(resolution)
+        return result
+
+    def get_resolution(self, project_id: str, dataset_id: str, key: str) -> Resolution | None:
+        """Read a canonical record's backing without loading the whole dataset."""
+        row = self._conn.execute(
+            "SELECT * FROM resolutions WHERE project_id = ? AND dataset_id = ? AND record_key = ?",
+            (project_id, dataset_id, key),
+        ).fetchone()
+        if row is None:
+            return None
+        return Resolution(
+            project_id=row["project_id"],
+            dataset_id=row["dataset_id"],
+            record_key=row["record_key"],
+            status=row["status"],
+            target_id=row["target_id"],
+            created_at=datetime.fromisoformat(row["created_at"]),
+        )
 
     def resolutions(
         self, project_id: str, dataset_id: str, *, resolve: bool = True

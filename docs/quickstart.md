@@ -33,9 +33,8 @@ the five portable skills, MCP configuration for your host (`--host claude`,
 `codex`, or `both`; Claude Code is the default), a starting `contracts.yaml`,
 and project guidance (`CLAUDE.md` or `AGENTS.md`). See
 [project agent setup](agent-setup.md) for the three install routes — the
-Claude Code plugin, `--host codex` (Codex has no plugin registry, so this is
-the manual-config route with the boilerplate written for you), and installing
-by hand into an existing project.
+Claude Code plugin, the generated Codex project configuration (`--host codex`),
+and installing by hand into an existing project.
 
 ```bash
 cd demo
@@ -69,20 +68,19 @@ and `validate` reports `no violations` with exit code `0` instead.
 
 ## 4. A worked run, with verified replay
 
-`new` scaffolds a project; it does not run a computation for you. From a
-clone of this repository, [`examples/managed/demo.py`](../examples/managed/demo.py)
-does: it registers a source and a snapshot, links two dataset records to that
+`new` scaffolds a project; it does not run a computation for you. The installed
+`demo` command registers a source and a snapshot, links two dataset records to that
 evidence, executes a retained Python program that sums them, records a
 correction that invalidates the input, shows a blocked rerun, then replays the
 original run from its retained bundle and checks the output still matches.
 
 ```bash
-python examples/managed/demo.py /tmp/xyle-managed-demo
+xyle-trace demo --project demo --path /tmp/xyle-managed-demo
 ```
 
 ```text
-initialised project managed-demo at /tmp/xyle-managed-demo/.lineage/graph.db
-Retained original total: 30. Verified replay. Explorer: /tmp/xyle-managed-demo/lineage.html
+The command prints JSON with original_total: 30, correction_blocked: true,
+replay_verified: true, and explorer: lineage.html.
 ```
 
 Open `lineage.html` in a browser for an offline, filterable view of the graph
@@ -90,13 +88,20 @@ this produced — no server, no network access. See
 [execution and replay](execution.md) for what the local runner does and does
 not guarantee.
 
+The checkout-only [`examples/managed/demo.py`](../examples/managed/demo.py) is
+still available as a Python API example. The readback commands below use the
+installed example's `demo` project ID; a different project ID produces different
+snapshot IDs, which the command prints. Continue with
+[the capture and review workflow](workflow.md) for doctor, explanations,
+selected report previews, and project handoff commands.
+
 ## 5. Read evidence and assumptions back
 
 Two read-only commands work against any project, including the one above:
 
 ```bash
-xyle-trace show --project managed-demo --db /tmp/xyle-managed-demo/.lineage/graph.db \
-  --root /tmp/xyle-managed-demo --snapshot source_snapshot:374d0131c85c61f0
+xyle-trace show --project demo --db /tmp/xyle-managed-demo/.lineage/graph.db \
+  --root /tmp/xyle-managed-demo --snapshot source_snapshot:04f297da579fb325
 ```
 
 ```json
@@ -114,7 +119,7 @@ content was judged correct. Add `--text` to include the decoded text for a
 snapshot that has one.
 
 ```bash
-xyle-trace ledger --project managed-demo --db /tmp/xyle-managed-demo/.lineage/graph.db
+xyle-trace ledger --project demo --db /tmp/xyle-managed-demo/.lineage/graph.db
 ```
 
 Lists every assumption decision and whether it currently backs a record

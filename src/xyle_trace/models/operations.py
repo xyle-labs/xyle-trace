@@ -366,6 +366,10 @@ class WalkRequest(OperationModel):
 class ExplainRequest(OperationModel):
     mode: Literal["explain"]
     node_id: Text
+    run_id: Text | None = None
+    revision: ContentHash | None = None
+    selector: str | None = None
+    include_code: bool = False
 
 
 class ImpactRequest(OperationModel):
@@ -410,11 +414,20 @@ class QueryResult(OperationModel):
     source_ids: list[Text] = Field(default_factory=list)
     claims_needing_review: list[Text] = Field(default_factory=list)
     content: ContentRef | None = None
+    explanation: dict[str, JsonValue] | None = None
 
 
 class ValidateRequest(OperationModel):
     dataset: Text | None = None
     run_name: Text | None = None
+    health: bool = False
+    receipt_paths: list[Text] = Field(default_factory=list, max_length=10000)
+
+    @model_validator(mode="after")
+    def receipts_require_health(self):
+        if self.receipt_paths and not self.health:
+            raise ValueError("receipt paths require health inspection")
+        return self
 
 
 class Gap(OperationModel):
@@ -441,16 +454,28 @@ class ValidateResult(OperationModel):
     run_blocked: bool | None
     policy_hash: ContentHash
     assumptions: AssumptionMetrics
+    health: dict[str, JsonValue] | None = None
 
 
 class ExportRequest(OperationModel):
-    format: Literal["json", "html"] = "json"
+    format: Literal["json", "html", "report", "bundle"] = "json"
     destination: Text | None = None
+    selected_ids: list[Text] = Field(default_factory=list)
+    title: Text = "Provenance report"
+    include_content: bool = False
 
     @model_validator(mode="after")
     def html_requires_destination(self):
-        if self.format == "html" and self.destination is None:
-            raise ValueError("HTML export requires a destination")
+        if self.format in {"html", "bundle"} and self.destination is None:
+            raise ValueError("HTML and bundle export require a destination")
+        if self.format == "report" and not self.selected_ids:
+            raise ValueError("report export requires selected result IDs")
+        if self.selected_ids and self.format not in {"html", "report"}:
+            raise ValueError("selected result IDs apply only to HTML and report export")
+        if len(set(self.selected_ids)) != len(self.selected_ids):
+            raise ValueError("duplicate selected result IDs")
+        if self.include_content and self.format != "bundle":
+            raise ValueError("retained content is included only in an explicit project bundle")
         return self
 
 

@@ -127,6 +127,8 @@ Traversal includes explicit edges and these recorded dependency references:
 - dataset → evidence/decision, through its current record resolutions;
 - evidence → snapshot, through `snapshot_id`;
 - snapshot → source, through `source_id`.
+- subject → methodology/exclusion/correction decision, through its recorded
+  subject or changed-dataset references.
 
 These references need no duplicate graph edges. `explain` returns ancestor IDs,
 source IDs, node and edge metadata, and the implicit dependency pairs. JSON export
@@ -228,6 +230,10 @@ Only assumption decisions can back records. Corrections atomically record a
 rationale and edit the specified rows, invalidating old approvals. Exclusion and
 methodology decisions record subjects and rationale; they do not silently delete
 rows or fabricate assumptions. A decision cannot change kind under the same key.
+New corrections retain `previous_records` with the old values, revisions,
+resolutions, and backing node state. These correction receipts are immutable;
+identical retries retain the original receipt, and subsequent corrections need
+new keys. Older receipts and direct low-level edits are not backfilled.
 
 Claim review is a separate operation that creates an immutable review decision and
 REVIEWED_BY edges, verifies the expected claim revisions, and records review state.
@@ -672,11 +678,10 @@ whether to trust it.
   `xyle-trace ledger` (`queries/ledger.py`) tells you which assumption
   decisions currently back at least one record (`standing`) and which back
   none (`unbacked`) — deliberately not a third `retired` state, because a
-  correction deletes the resolution row linking the old assumption to the
-  record it backed (`Store.put_records`), so by the time anything asks, the
-  very link that would distinguish "superseded by better evidence" from
-  "never used" is already gone. An `unbacked` assumption may be either; the
-  toolkit will not guess which, and no field is added to fake the distinction.
+  correction deletes the current resolution row linking the old assumption to
+  its record. New correction receipts retain that prior backing, but older
+  corrections and direct record edits may not. The ledger remains a current-state
+  view; inspect the actual correction receipts when historical backing is needed.
 - **Ungoverned datasets and orphan artifacts are warnings, never blocking.**
   `ungoverned_dataset` (a dataset with records no contract governs) and
   `orphan_artifact` (an artifact with no incoming *`produced`* edge — an
@@ -697,6 +702,14 @@ whether to trust it.
   or an ad hoc artifact to a project cannot break its existing contracts.
 
 ## Verification and next phase
+
+See [capture, explanation, review, sharing, and handoff](workflow.md) for the
+current additional CLI commands and request fields. Existing `lineage.query`
+explain requests accept `run_id`, `revision`, `selector`, and `include_code`.
+`lineage.validate` accepts `health` and explicit `receipt_paths`. Existing
+`lineage.export` accepts `report` and `bundle` formats, `selected_ids`, a report
+`title`, and explicit bundle `include_content`. A report without a destination
+returns its sanitized preview. No MCP tool or node type has been added.
 
 From an environment with the project development dependencies installed:
 

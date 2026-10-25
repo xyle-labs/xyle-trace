@@ -1,6 +1,7 @@
 # Result explorer and reports
 
-Status: planned. Delivery tasks are tracked in [ROADMAP.md](../ROADMAP.md).
+Status: implemented baseline under review. Interactive browser acceptance remains
+outstanding. Delivery tasks are tracked in [ROADMAP.md](../ROADMAP.md).
 This is a generic toolkit feature; example-specific analysis belongs to its
 consuming repository.
 
@@ -83,10 +84,13 @@ content is represented by an explicit omission, not a broken or misleading link.
 
 ## Current baseline and acceptance
 
-The existing HTML export is a searchable node list with upstream/downstream
-filters and a JSON inspector. It is useful for inspection but does not yet
-provide the connected result-first graph, readable calculation panels, or
-curated report described here. Raw metadata can remain an optional detail view.
+The HTML export now has result cards, a connected SVG dependency view, a linear
+keyboard path, readable explanation sections, version-aware links, and optional
+raw metadata. Selected reports have their own historical contexts, print
+formatting, and a projected-data preview. Source text and executable code are
+omitted from these sharing defaults. The current diagram caps visible nodes at
+80 while retaining the complete linear path; per-branch expansion and richer
+grouping remain refinements. See [the workflow](workflow.md) for commands.
 
 Acceptance requires an end-to-end browser test that selects a result, follows
 its calculation and record backing to an exact source version, inspects an

@@ -531,6 +531,23 @@ class Service:
             claims = []
             if parsed.mode == "explain":
                 graph = traversal.explain(self.store, self.project_id, parsed.node_id)
+                from xyle_trace.queries.explanation import ExplanationError, explain_result
+
+                try:
+                    explanation, historical = explain_result(
+                        self.store,
+                        self.project_id,
+                        node,
+                        root=self.root,
+                        run_id=parsed.run_id,
+                        expected_revision=parsed.revision,
+                        selector=parsed.selector,
+                        include_code=parsed.include_code,
+                    )
+                except ExplanationError as error:
+                    raise ServiceError(error.code, str(error)) from error
+                if historical is not None:
+                    graph = historical
             else:
                 if parsed.mode == "impact":
                     result = impact(self.store, self.project_id, parsed.node_id)
@@ -542,11 +559,17 @@ class Service:
             nodes = [self._node_state(Node.model_validate(node)) for node in graph["nodes"]]
             records = []
             if parsed.mode == "explain":
-                for state in nodes:
-                    if state.node.type == NodeType.DATASET:
-                        records.extend(self._record_states(state.node.id))
-                        if state.node.natural_key != state.node.id:
-                            records.extend(self._record_states(state.node.natural_key))
+                if historical is not None:
+                    for item in explanation["inputs"]:
+                        records.extend(
+                            op.RecordState.model_validate(row) for row in item["records"]
+                        )
+                else:
+                    for state in nodes:
+                        if state.node.type == NodeType.DATASET:
+                            records.extend(self._record_states(state.node.id))
+                            if state.node.natural_key != state.node.id:
+                                records.extend(self._record_states(state.node.natural_key))
             return op.QueryResult(
                 mode=parsed.mode,
                 node_id=parsed.node_id,
@@ -559,13 +582,25 @@ class Service:
                 records=records,
                 source_ids=[state.node.id for state in nodes if state.node.type == NodeType.SOURCE],
                 claims_needing_review=claims,
+                explanation=explanation if parsed.mode == "explain" else None,
             )
 
     def validate(self, request: op.ValidateRequest | dict) -> op.ValidateResult:
         with self._request(_VALIDATE, request, transaction=False) as parsed:
             contracts, policy_hash = self._policy_snapshot()
             with self.store.transaction(write=False):
-                return self._validation(parsed, contracts, policy_hash)
+                result = self._validation(parsed, contracts, policy_hash)
+                if parsed.health:
+                    from xyle_trace.queries.health import project_health
+
+                    result.health = project_health(
+                        self.store,
+                        self.project_id,
+                        self.root,
+                        contracts,
+                        receipt_paths=parsed.receipt_paths,
+                    )
+                return result
 
     def _validation(self, request: op.ValidateRequest, contracts: list[Contract], policy_hash: str):
         datasets = {}
@@ -749,21 +784,82 @@ class Service:
             temporary = None
             try:
                 path = self._export_destination(parsed.destination) if parsed.destination else None
-                with self.store.transaction(write=False):
-                    graph = export_graph(self.store, self.project_id)
-                    rendered = (
-                        render_html(
-                            graph,
-                            [
-                                {"consumer": consumer, "dependency": dependency}
-                                for consumer, dependency in _dependencies(
-                                    self.store, self.project_id
-                                )
-                            ],
-                        )
-                        if parsed.format == "html"
-                        else canonical_json(graph)
+                if parsed.format == "bundle":
+                    from xyle_trace.core.handoff import export_project
+
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    export_project(
+                        self.store,
+                        self.project_id,
+                        self.root,
+                        path,
+                        contracts_path=self.contracts_path,
+                        include_content=parsed.include_content,
                     )
+                    return op.ExportResult(
+                        graph=None,
+                        path=path.relative_to(self.root).as_posix(),
+                        content_hash=hash_file(path),
+                        node_count=len(self.store.all_nodes(self.project_id)),
+                        edge_count=len(self.store.all_edges(self.project_id)),
+                    )
+                with self.store.transaction(write=False):
+                    if parsed.format == "report":
+                        from xyle_trace.exporters.report import render_report
+
+                        graph, dependencies, explanations = self._report_selection(
+                            parsed.selected_ids
+                        )
+                        rendered = render_report(
+                            graph,
+                            dependencies,
+                            selected_ids=parsed.selected_ids,
+                            explanations=explanations,
+                            title=parsed.title,
+                        )
+                    else:
+                        graph = export_graph(self.store, self.project_id)
+                        dependencies = [
+                            {"consumer": consumer, "dependency": dependency}
+                            for consumer, dependency in _dependencies(self.store, self.project_id)
+                        ]
+                        if parsed.format == "html":
+                            selected = parsed.selected_ids or [
+                                n["id"]
+                                for n in graph["nodes"]
+                                if n["type"] in {"artifact", "indicator", "claim"}
+                            ]
+                            results = {
+                                key: self.query({"mode": "explain", "node_id": key})
+                                for key in selected
+                            }
+                            explanations = {
+                                key: result.explanation for key, result in results.items()
+                            }
+                            contexts = {
+                                key: {
+                                    "nodes": [
+                                        state.node.model_dump(mode="json") for state in result.nodes
+                                    ],
+                                    "edges": [
+                                        state.edge.model_dump(mode="json") for state in result.edges
+                                    ],
+                                    "dependencies": [
+                                        pair.model_dump(mode="json") for pair in result.dependencies
+                                    ],
+                                    "datasets": {},
+                                }
+                                for key, result in results.items()
+                            }
+                            rendered = render_html(
+                                graph,
+                                dependencies,
+                                explanations=explanations,
+                                selected_ids=parsed.selected_ids or None,
+                                contexts=contexts,
+                            )
+                        else:
+                            rendered = canonical_json(graph)
                 data = rendered.encode("utf-8")
                 if path is not None:
                     path.parent.mkdir(parents=True, exist_ok=True)
@@ -791,6 +887,76 @@ class Service:
             finally:
                 if temporary is not None:
                     temporary.unlink(missing_ok=True)
+
+    def _report_selection(self, selected_ids):
+        """Project only selected result explanations; never include unrelated graph data."""
+        from xyle_trace.exporters.html_graph import safe_metadata
+
+        nodes, edges, dependencies, explanations, contexts = {}, {}, {}, {}, {}
+        for node_id in selected_ids:
+            node = self._node(node_id, {NodeType.ARTIFACT, NodeType.INDICATOR, NodeType.CLAIM})
+            result = self.query({"mode": "explain", "node_id": node.id})
+            for item in result.nodes:
+                nodes[item.node.id] = {
+                    **item.node.model_dump(mode="json"), "revision": item.revision
+                }
+            for item in result.edges:
+                edges[item.edge.id] = item.edge.model_dump(mode="json")
+            for pair in result.dependencies:
+                dependencies[(pair.consumer, pair.dependency)] = pair.model_dump(mode="json")
+            explanations[node_id] = result.explanation
+            contexts[node_id] = {
+                "nodes": [
+                    {**item.node.model_dump(mode="json"), "revision": item.revision}
+                    for item in result.nodes
+                ],
+                "edges": [item.edge.model_dump(mode="json") for item in result.edges],
+                "dependencies": [pair.model_dump(mode="json") for pair in result.dependencies],
+                "datasets": {},
+            }
+        allowed = set(nodes)
+
+        def scoped(value):
+            if isinstance(value, list):
+                return [scoped(item) for item in value]
+            if not isinstance(value, dict):
+                return value
+            result = {key: scoped(item) for key, item in value.items()}
+            if result.get("kind") not in {"correction", "methodology", "exclusion", "review"}:
+                return result
+            for key, reference_field in (("changes", "dataset_id"), ("claims", "claim_id")):
+                if isinstance(result.get(key), list):
+                    prior = result[key]
+                    result[key] = [item for item in prior if item.get(reference_field) in allowed]
+                    if len(prior) != len(result[key]):
+                        result["omitted_unselected_changes"] = True
+            if isinstance(result.get("previous_records"), list):
+                prior = result["previous_records"]
+                result["previous_records"] = [
+                    item for item in prior if item.get("record", {}).get("dataset_id") in allowed
+                ]
+                if len(prior) != len(result["previous_records"]):
+                    result["omitted_unselected_changes"] = True
+            if isinstance(result.get("subject_ids"), list):
+                result["subject_ids"] = [key for key in result["subject_ids"] if key in allowed]
+            return result
+
+        graph = safe_metadata(
+            {
+                "project_id": self.project_id,
+                "nodes": sorted(nodes.values(), key=lambda n: n["id"]),
+                "edges": sorted(edges.values(), key=lambda e: e["id"]),
+                "datasets": {},
+                "explanations": explanations,
+                "contexts": contexts,
+                "omissions": [
+                    "Source bytes and executable code are omitted",
+                    "Only selected results and their recorded upstream context are included",
+                ],
+            }
+        )
+        graph = scoped(graph)
+        return graph, list(dependencies.values()), graph["explanations"]
 
     def snapshot(self, request: op.SnapshotRequest | dict) -> op.SnapshotResult:
         with self._request(_SNAPSHOT, request, transaction=False) as parsed:
@@ -956,20 +1122,26 @@ class Service:
             raise ServiceError("invalid_reference", "provisional backing cannot resolve records")
         seen = set()
         result = []
+        datasets = {}
+        rows = {}
+        resolutions = {}
         for binding in bindings:
-            dataset = self._dataset(binding.dataset_id)
+            if binding.dataset_id not in datasets:
+                datasets[binding.dataset_id] = self._dataset(binding.dataset_id)
+            dataset = datasets[binding.dataset_id]
+            if dataset.id not in rows:
+                rows[dataset.id] = {
+                    row.key: row
+                    for row in self.store.records(self.project_id, dataset.id, resolve=False)
+                }
+                resolutions[dataset.id] = self.store.resolutions(
+                    self.project_id, dataset.id, resolve=False
+                )
             pair = (dataset.id, binding.record_key)
             if pair in seen:
                 raise ServiceError("invalid_request", "duplicate record binding")
             seen.add(pair)
-            record = next(
-                (
-                    r
-                    for r in self.store.records(self.project_id, dataset.id, resolve=False)
-                    if r.key == binding.record_key
-                ),
-                None,
-            )
+            record = rows[dataset.id].get(binding.record_key)
             if record is None:
                 raise ServiceError("not_found", f"record {binding.record_key!r} not found")
             self._check_revision(
@@ -987,9 +1159,7 @@ class Service:
                 if target.type == NodeType.EVIDENCE_LINK
                 else "assumption_backed",
             )
-            current = self.store.resolutions(self.project_id, dataset.id, resolve=False).get(
-                record.key
-            )
+            current = resolutions[dataset.id].get(record.key)
             self._check_revision(
                 self._resolution_data(current),
                 binding.expected_resolution_revision,
@@ -1001,29 +1171,35 @@ class Service:
         return result
 
     def _apply_bindings(self, bindings: list[Resolution], changes: _Changes):
+        affected = set()
         for binding in bindings:
             changes.records.add((binding.dataset_id, binding.record_key))
-            current = self.store.resolutions(
-                self.project_id, binding.dataset_id, resolve=False
-            ).get(binding.record_key)
+            current = self.store.get_resolution(
+                self.project_id, binding.dataset_id, binding.record_key
+            )
             if self._resolution_data(current) != self._resolution_data(binding):
-                changes.claims.update(self._claim_ids(binding.dataset_id))
-            self.store.put_resolution(binding)
+                affected.add(binding.dataset_id)
+        for dataset_id in affected:
+            changes.claims.update(self._claim_ids(dataset_id))
+        self.store.put_resolutions(bindings)
 
     def _result(self, node_id: str, changes: _Changes) -> op.MutationResult:
         records = []
+        rows = {}
+        resolutions = {}
         for dataset_id, key in sorted(changes.records):
-            record = next(
-                (
-                    r
-                    for r in self.store.records(self.project_id, dataset_id, resolve=False)
-                    if r.key == key
-                ),
-                None,
-            )
+            if dataset_id not in rows:
+                rows[dataset_id] = {
+                    row.key: row
+                    for row in self.store.records(self.project_id, dataset_id, resolve=False)
+                }
+                resolutions[dataset_id] = self.store.resolutions(
+                    self.project_id, dataset_id, resolve=False
+                )
+            record = rows[dataset_id].get(key)
             if record is None:
                 continue
-            backing = self.store.resolutions(self.project_id, dataset_id, resolve=False).get(key)
+            backing = resolutions[dataset_id].get(key)
             records.append(
                 op.RecordState(
                     record=record,
@@ -1200,6 +1376,42 @@ class Service:
                     raise ServiceError("invalid_request", "duplicate decision subjects")
                 for subject_id in parsed.subject_ids:
                     self._node(subject_id)
+            if isinstance(parsed, op.CorrectionRequest):
+                if current is not None:
+                    prior_request = {
+                        key: value
+                        for key, value in current.data.items()
+                        if key != "previous_records"
+                    }
+                    if revision(prior_request) != revision(node.data):
+                        raise ServiceError(
+                            "conflict", "correction receipts are immutable; record a new correction"
+                        )
+                    # Exact retries retain the original receipt; never reconstruct history.
+                    node.data = current.data
+                else:
+                    previous = []
+                    datasets = {}
+                    for change in parsed.changes:
+                        dataset = self._dataset(change.dataset_id)
+                        if dataset.id not in datasets:
+                            datasets[dataset.id] = {
+                                row.record.key: row for row in self._record_states(dataset.id)
+                            }
+                        state = datasets[dataset.id].get(change.key)
+                        if state is None:
+                            raise ServiceError("not_found", "corrected record does not exist")
+                        receipt = state.model_dump(mode="json")
+                        target = (
+                            self.store.get_node(self.project_id, state.resolution.target_id)
+                            if state.resolution
+                            else None
+                        )
+                        receipt["backing"] = (
+                            self._node_state(target).model_dump(mode="json") if target else None
+                        )
+                        previous.append(receipt)
+                    node.data["previous_records"] = previous
             self._write_node(node, parsed.expected_revision, changes)
             if isinstance(parsed, op.CorrectionRequest):
                 grouped = {}

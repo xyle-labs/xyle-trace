@@ -15,8 +15,13 @@ ask a question like "where does this number come from?" and get a real answer.
   `contracts.yaml` blocks a run until its inputs are backed by exact evidence
   or a recorded assumption, instead of relying on the agent to remember.
 - Answers upstream, downstream, `explain`, `impact`, and `content` queries
-  against a deterministic, local-first SQLite graph. No hosted service, no
-  network dependency, and nothing about your data leaves the machine.
+  against a deterministic, local-first SQLite graph. Storage needs no hosted
+  service. An agent host receives the data returned through MCP; its privacy
+  settings and model processing remain the host's responsibility.
+- Explains selected results using retained input versions, shows pending review
+  and changed outputs, and provides a connected offline explorer and selected
+  HTML reports. Portable handoffs preserve the graph and optionally retained
+  evidence, without restoring executable working files.
 
 ## See it work
 
@@ -50,6 +55,17 @@ pip install 'xyle-trace[mcp] @ git+https://github.com/xyle-labs/xyle-trace.git@m
 xyle-trace new --project demo --path ./demo
 ```
 
+For a complete synthetic calculation, correction gate, and verified historical
+replay from the installed package:
+
+```bash
+xyle-trace demo --project demo --path ./worked-demo
+```
+
+Open `worked-demo/lineage.html` to inspect the result. The demo deliberately
+leaves a corrected input unresolved so the current-data gate remains visible.
+See [capture, review, sharing, and handoff](docs/workflow.md) for the full workflow.
+
 `main` tracks unreleased development; replace it with a reviewed commit ID
 when you need a repeatable installation.
 
@@ -66,11 +82,11 @@ are in **[docs/core-contract.md](docs/core-contract.md)**.
 
 ## Roadmap
 
-The next milestones are a reliable first-run experience, a result explorer that
-reveals sources and calculations, and a narrated walkthrough using a separate
-public-transport example project. See **[ROADMAP.md](ROADMAP.md)** for tasks,
-acceptance criteria, and GitHub issues. The example's analysis and data live in
-its own repository and use xyle-trace as a dependency.
+The product scope is reliable capture, exact result explanations, review and
+change impact, and sharing selected findings. Portable projects support this
+workflow. See **[ROADMAP.md](ROADMAP.md)** for implementation and acceptance
+boundaries. Domain analysis and specialist dependencies belong in consuming
+projects.
 
 ## Limitations
 

@@ -51,9 +51,9 @@ in how much the host automates and in what still has to be run by hand.
    { "project": "analysis" }
    ```
 
-   Run `xyle-trace new` (below) in a fresh project and this file is exactly
-   what it does not yet write for you — add it once by hand, or export
-   `XYLE_TRACE_PROJECT` in the shell the host launches from.
+   `xyle-trace new` writes this discovery file with relative project paths.
+   For an existing project, add the file or export `XYLE_TRACE_PROJECT` in the
+   shell the host launches from. Invalid field types produce configuration errors.
 
    One consequence worth knowing: this toolkit checkout's own root `.mcp.json`
    is also an ordinary project-level MCP config for anyone who opens this
@@ -65,14 +65,10 @@ in how much the host automates and in what still has to be run by hand.
    plugin route to work at all, and the failure mode for contributors working in
    this repository is a clean error, not a hazard.
 
-2. **`xyle-trace new --host codex` (Codex).** Codex has no plugin registry
-   comparable to `/plugin install` — there is no marketplace, no one-step
-   install, and no auto-discovered project MCP config outside what a file on
-   disk declares. Its install stays file-based: `xyle-trace new --host codex`
-   (see below) writes `.agents/skills/` and `.codex/config.toml` directly into
-   the consuming project. This is not a lesser version of the plugin route with
-   different commands; it is a genuinely different mechanism, and nothing here
-   should be read as Codex having registry parity with Claude Code.
+2. **`xyle-trace new --host codex` (Codex).** The supported setup here writes
+   `.agents/skills/`, `.codex/config.toml`, and `AGENTS.md` directly into the
+   consuming project. Install the Python package first, then scaffold the project
+   and start the host there. This route uses the generated project configuration.
 
 3. **Manual path.** Copy the skills and merge the MCP server entry by hand, for
    an existing project or a host-specific layout the other two routes do not
@@ -150,7 +146,7 @@ Configure the host to launch this executable with these arguments:
   --contracts /absolute/path/to/analysis/contracts.yaml
 ```
 
-All four flags are required. The root must exist, the database must contain the
+All four explicit flags make this command independent of discovery. The root must exist, the database must contain the
 initialized project, and contracts must load successfully. Absolute paths avoid
 dependence on the client's working directory. The host starts the server; there
 is no separate background daemon to launch. Its stdout is the MCP protocol.

@@ -69,11 +69,10 @@ Run the existing checks with:
 PYTHONPATH=src .venv/bin/python -m xyle_trace.cli.main --help
 ```
 
-With the `mcp` extra installed, all 439 tests pass. A core-only installation
-(no `mcp` extra) passes 408 tests with 4 skipped, across the four MCP test
-modules (`test_main_discovery.py`, `test_server.py`, `test_stdio.py`,
-`test_workflow.py`); both CLI entry points still work, and `xyle-trace-mcp`
-exits with installation guidance rather than a traceback.
+Run the checks for current counts rather than relying on a historical total.
+Core-only installation is supported; MCP protocol tests skip when the extra
+is absent. CI also builds and installs a wheel outside the checkout and exercises
+the packaged demo, capture, skills, and project discovery.
 
 ## Where to read more
 
