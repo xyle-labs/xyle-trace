@@ -50,14 +50,15 @@ def test_report_requires_explicit_selection_and_limits_to_upstream_closure(graph
     assert '<script src=' not in report and '<link ' not in report
 
 
-def test_report_escapes_input_and_states_missing_explanation(graph):
+@pytest.mark.parametrize("tag", ["script", "SCRIPT", "ScRiPt"])
+def test_report_escapes_input_and_states_missing_explanation(graph, tag):
     graph["nodes"][0]["natural_key"] = '<img src=x onerror="alert(1)">'
-    report = render_report(graph, [], selected_ids=["result"], title="<script>boom</script>")
-    assert "<img" not in report and "<script>boom" not in report
-    assert "&lt;img" in report and "&lt;script&gt;boom" in report
+    report = render_report(graph, [], selected_ids=["result"], title=f"<{tag}>boom</{tag}>")
+    assert "<img" not in report and f"<{tag}>boom" not in report
+    assert "&lt;img" in report and f"&lt;{tag}&gt;boom" in report
     assert "Explanation not available" in report
     assert "Evidence not recorded" in report
-    assert not re.search(r"<script(?:\s|>)", report)
+    assert not re.search(r"<script(?:\s|>)", report, re.IGNORECASE)
 
 
 def test_report_uses_typed_metadata_and_selected_value_without_uri_secrets(graph):
