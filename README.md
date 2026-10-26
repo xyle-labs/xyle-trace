@@ -42,10 +42,16 @@ snapshot, and finally the one source it came from.
 
 ## Install
 
+Requires Python 3.11+ and Git. Until the first PyPI release, install from the
+public repository:
+
 ```bash
-pip install 'xyle-trace[mcp]'
+pip install 'xyle-trace[mcp] @ git+https://github.com/xyle-labs/xyle-trace.git@main'
 xyle-trace new --project demo --path ./demo
 ```
+
+`main` tracks unreleased development; replace it with a reviewed commit ID
+when you need a repeatable installation.
 
 `new` scaffolds a project: local store, the five skills, MCP configuration for
 Claude Code or Codex, and a starting `contracts.yaml`. Full walkthrough,

@@ -35,13 +35,15 @@ CLAUDE = re.compile(r"^co-authored-by:\s*.*(?:\bclaude\b|@anthropic\.com)", re.I
 EMAIL = re.compile(r"[\w.+%-]+(?:\[bot\])?@(?:[\w-]+\.)+[a-zA-Z]{2,}")
 PUBLIC_EMAILS = {
     "jesse@xyle.de", "no-reply@xyle.de",
+    "jesse@j-apps.com",
     "noreply@github.com", "noreply@anthropic.com", "support@github.com",
     "49699333+dependabot[bot]@users.noreply.github.com",
 }
-# Exact automation identities and the project's approved publication identity.
+# Exact project, owner-approved Jesse-jApps, and automation identities.
 PUBLIC_IDENTITIES = {
     "Xyle Labs <jesse@xyle.de>", "Xyle Labs <no-reply@xyle.de>",
     "Jesse <no-reply@xyle.de>",
+    "Jesse <jesse@j-apps.com>",
     "GitHub <noreply@github.com>",
     "dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
 }

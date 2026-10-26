@@ -1,13 +1,17 @@
 # Quickstart
 
-Every command below was run in a scratch directory before this file was
-committed. Output shown is real, not illustrative.
+The walkthrough output below was captured in a scratch project.
 
 ## 1. Install
 
+Use Python 3.11+ and Git. There is no PyPI release yet; install from the public
+repository (`main` tracks unreleased development):
+
 ```bash
-pip install 'xyle-trace[mcp]'
+pip install 'xyle-trace[mcp] @ git+https://github.com/xyle-labs/xyle-trace.git@main'
 ```
+
+For a repeatable installation, replace `main` with a reviewed commit ID.
 
 The base package has no runtime dependencies beyond Pydantic and PyYAML. The
 `mcp` extra adds the optional stdio server; skip it if you only want the CLI
