@@ -31,6 +31,36 @@ def _capture_gaps_valid(value):
     return isinstance(value, list) and all(isinstance(item, str) for item in value)
 
 
+def _working_output_consistent(run, nodes, edges):
+    descriptor = run.data.get("working_output")
+    if descriptor is None:
+        return True
+    if not isinstance(descriptor, dict) or not isinstance(descriptor.get("node_id"), str):
+        return False
+    artifact = nodes.get(descriptor["node_id"])
+    output = run.data.get("output")
+    hashes = run.data.get("output_file_hashes")
+    return (
+        run.data.get("capture_mode") == "managed"
+        and artifact is not None
+        and artifact.type == NodeType.ARTIFACT
+        and isinstance(descriptor.get("path"), str)
+        and artifact.data.get("path") == descriptor["path"]
+        and isinstance(output, dict)
+        and isinstance(descriptor.get("content_hash"), str)
+        and descriptor["content_hash"] == output.get("content_hash")
+        and _file_hashes_valid(hashes)
+        and hashes.get(artifact.id) == descriptor["content_hash"]
+        and any(
+            edge.type == EdgeType.PRODUCED
+            and edge.src == run.id
+            and edge.dst == artifact.id
+            and not edge.data.get("provisional", False)
+            for edge in edges
+        )
+    )
+
+
 def _graph_issues(store, project_id, nodes, edges):
     """Check stored relationships independently of policy coverage and retained bytes."""
     issues = []
@@ -53,6 +83,8 @@ def _graph_issues(store, project_id, nodes, edges):
     }
     for node in nodes:
         if node.type == NodeType.RUN:
+            if not _working_output_consistent(node, by_id, edges):
+                issues.append({"kind": "inconsistent_working_output", "node_id": node.id})
             for field, valid in (
                 ("capture_gaps", _capture_gaps_valid),
                 ("input_file_hashes", _file_hashes_valid),
@@ -307,6 +339,21 @@ def project_health(
             and latest.data["output"].get("path") == artifact.data.get("path")
         ):
             expected = latest.data["output"].get("content_hash")
+        working = latest.data.get("working_output") if latest else None
+        if (
+            isinstance(working, dict)
+            and working.get("node_id") == artifact.id
+            and artifact.data.get("content_hash") != expected
+        ):
+            # Older working-output receipts retain their original hashes. Only
+            # the latest producer must match the current artifact metadata.
+            graph_issues.append(
+                {
+                    "kind": "inconsistent_working_output",
+                    "node_id": latest.id,
+                    "artifact_id": artifact.id,
+                }
+            )
         artifacts.append(
             {
                 "node_id": artifact.id,

@@ -211,3 +211,184 @@ def test_explorer_names_current_and_retained_context_explicitly():
     assert 'id="basis-state"' in page
     assert "Historical retained inputs" in page
     assert "Current graph context" in page
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js not installed")
+def test_downstream_uses_current_graph_while_upstream_keeps_retained_inputs():
+    result = {"id": "result", "type": "artifact", "natural_key": "Result", "data": {}}
+    current_output = {"id": "current-output", "type": "claim", "natural_key": "Current", "data": {}}
+    current_input = {"id": "input", "type": "dataset", "natural_key": "Input",
+                     "data": {"description": "current version"}}
+    retained_input = {**current_input, "data": {"description": "retained version"}}
+    graph = {"project_id": "p", "nodes": [result, current_output, current_input],
+             "edges": [{"src": "current-output", "dst": "result", "type": "depends_on", "data": {}}],
+             "datasets": {}}
+    contexts = {"result": {"nodes": [result, retained_input], "edges": [
+        {"src": "result", "dst": "input", "type": "depends_on", "data": {}}],
+        "dependencies": [], "datasets": {}}}
+    page = render_html(graph, [], contexts=contexts, selected_ids=["result"],
+                       explanations={"result": {"graph_basis": "retained_inputs"}})
+    script = re.search(r"<script>\n(.*?)</script>", page, re.DOTALL)[1]
+    selector = re.search(r"(function selectionView\(.*?\n})\n", script, re.DOTALL)
+    assert selector, "a direction-aware context selector is required"
+    walk = re.search(r"(function walk\(.*?\n})\n", script, re.DOTALL)[1]
+    link = re.search(r"(function linkFor\(.*?\n})\n", script, re.DOTALL)[1]
+    select = re.search(r"(function setSelection\(.*?\n})\n", script, re.DOTALL)[1]
+    revision = re.search(r"(const revision=.*?;)\n", script)[1]
+    payload = _payload(page)
+    check = f"const graph={json.dumps(payload['graph'])};\n" + f"const contexts={json.dumps(payload['contexts'])};\n" + f"const revisions={json.dumps(payload['revisions'])};\n" + f"const context_revisions={json.dumps(payload['context_revisions'])};\n" + """
+const globalView={basis:'current',byId:new Map(graph.nodes.map(n=>[n.id,n])),
+ pairs:graph.edges.map(e=>({from:e.src,to:e.dst}))};
+function contextFor(id){const g=contexts[id];return {basis:'historical',
+ byId:new Map(g.nodes.map(n=>[n.id,n])),pairs:g.edges.map(e=>({from:e.src,to:e.dst}))};}
+let view=globalView;
+let activeDirection='upstream',impactRootId=null;
+const globalById=globalView.byId,location={hash:''},trail=[];
+const controls={direction:{value:'upstream'},'link-state':{textContent:''}};
+const el=id=>controls[id];
+let focusId=null,activeId=null,pendingHash=null;
+function render(){}
+""" + selector[1] + "\n" + revision + "\n" + walk + "\n" + link + "\n" + select + "\n" + """
+view=selectionView('result','upstream');
+if(view.basis!=='historical'||view.byId.get('input').data.description!=='retained version')
+ throw Error('upstream lost retained input');
+if(JSON.stringify(walk('result','upstream').order)!==JSON.stringify(['result','input']))
+ throw Error('retained upstream path changed');
+view=selectionView('result','downstream');
+if(view.basis!=='current'||view.byId.get('input').data.description!=='current version')
+ throw Error('downstream did not use current graph');
+if(JSON.stringify(walk('result','downstream').order)!==JSON.stringify(['result','current-output']))
+ throw Error('current downstream output missing');
+const retainedLink=new URLSearchParams(linkFor('result','input','upstream').slice(1));
+const currentLink=new URLSearchParams(linkFor('result','input','downstream').slice(1));
+if(retainedLink.get('basis')!=='historical'||retainedLink.get('direction')!=='upstream')
+ throw Error('retained link lacks basis and direction');
+if(currentLink.get('basis')!=='current'||currentLink.get('direction')!=='downstream')
+ throw Error('current link lacks basis and direction');
+if(retainedLink.get('rev')===currentLink.get('rev'))throw Error('input versions were mixed');
+if(retainedLink.get('rev')!==context_revisions.result.input||currentLink.get('rev')!==revisions.input)
+ throw Error('link used a revision from the wrong graph');
+setSelection('result','input',true,'upstream');
+setSelection('result','result',true,'downstream');
+if(trail.length!==1||trail[0][1]!=='input'||trail[0][2]!=='upstream')
+ throw Error('direction switch lost retained selection for Back');
+if(view.basis!=='current'||controls.direction.value!=='downstream')
+ throw Error('direction switch did not select current view');
+const prior=trail.pop();setSelection(prior[0],prior[1],false,prior[2],prior[3]);
+if(view.basis!=='historical'||activeId!=='input'||controls.direction.value!=='upstream')
+ throw Error('Back did not restore retained version');
+if(new URLSearchParams(location.hash.slice(1)).get('rev')!==context_revisions.result.input)
+ throw Error('Back linked to the wrong input version');
+"""
+    result = subprocess.run(["node", "-e", check], capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr
+    assert 'p.get("basis")!==selectedView.basis' in script
+    assert 'trail.push([focusId,activeId,activeDirection,impactRootId])' in script
+    assert 'setSelection(prior[0],prior[1],false,prior[2],prior[3])' in script
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js not installed")
+def test_context_basis_uses_explanation_and_unknown_context_keeps_its_revision():
+    current = {"id": "result", "type": "indicator", "natural_key": "Result",
+               "data": {"description": "current"}}
+    contextual = {**current, "data": {"description": "contextual"}}
+    graph = {"project_id": "p", "nodes": [current], "edges": [], "datasets": {}}
+    contexts = {"result": {"nodes": [contextual], "edges": [], "dependencies": [],
+                           "datasets": {}}}
+    page = render_html(graph, [], contexts=contexts, selected_ids=["result"])
+    script = re.search(r"<script>\n(.*?)</script>", page, re.DOTALL)[1]
+    context = re.search(r"(function contextFor\(.*?\n})\n", script, re.DOTALL)[1]
+    selector = re.search(r"(function selectionView\(.*?\n})\n", script, re.DOTALL)[1]
+    revision = re.search(r"(const revision=.*?;)\n", script)[1]
+    payload = _payload(page)
+    check = f"const graph={json.dumps(payload['graph'])};\n" + f"const contexts={json.dumps(payload['contexts'])};\n" + f"const revisions={json.dumps(payload['revisions'])};\n" + f"const context_revisions={json.dumps(payload['context_revisions'])};\n" + """
+const globalById=new Map(graph.nodes.map(n=>[n.id,n]));
+const globalView={graph,byId:globalById,pairs:[],basis:'current'};
+function connections(){return [];}
+let explanations={result:{graph_basis:'current_context',selection:{historical:false}}};
+""" + context + "\n" + selector + "\n" + revision + "\n" + """
+if(selectionView('result','upstream').basis!=='current')
+ throw Error('reported context mislabeled historical');
+if(selectionView('result','downstream')!==globalView)
+ throw Error('downstream must use current global graph');
+explanations={result:{graph_basis:'retained_inputs',selection:{historical:true}}};
+if(selectionView('result','upstream').basis!=='historical')
+ throw Error('retained context mislabeled current');
+explanations={};
+const unknown=selectionView('result','upstream');
+if(unknown.basis!=='unknown')throw Error('unknown context asserted a basis');
+if(revision(unknown.byId.get('result'),'result',unknown.basis)!==context_revisions.result.result)
+ throw Error('unknown context lost its per-result revision');
+if(revision(globalById.get('result'),'result','current')!==revisions.result)
+ throw Error('current view used contextual revision');
+"""
+    result = subprocess.run(["node", "-e", check], capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr
+    assert "Context basis not recorded" in script
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js not installed")
+def test_selected_input_can_anchor_current_impacts_without_losing_retained_back_path():
+    result = {"id": "result", "type": "artifact", "natural_key": "Result", "data": {}}
+    current_input = {"id": "input", "type": "dataset", "natural_key": "Input",
+                     "data": {"description": "current"}}
+    retained_input = {**current_input, "data": {"description": "retained"}}
+    outputs = [{"id": key, "type": "claim", "natural_key": key, "data": {}}
+               for key in ("affected-a", "affected-b")]
+    graph = {"project_id": "p", "nodes": [result, current_input, *outputs],
+             "edges": [{"src": item["id"], "dst": "input", "type": "depends_on", "data": {}}
+                       for item in outputs], "datasets": {}}
+    contexts = {"result": {"nodes": [result, retained_input], "edges": [
+        {"src": "result", "dst": "input", "type": "depends_on", "data": {}}],
+        "dependencies": [], "datasets": {}}}
+    page = render_html(graph, [], contexts=contexts, selected_ids=["result"],
+                       explanations={"result": {"graph_basis": "retained_inputs"}})
+    script = re.search(r"<script>\n(.*?)</script>", page, re.DOTALL)[1]
+    assert "impactRootId" in script, "downstream navigation needs a stable selected input root"
+    functions = [re.search(rf"(function {name}\(.*?\n}})\n", script, re.DOTALL)[1]
+                 for name in ("contextFor", "selectionView", "walk", "linkFor",
+                              "setSelection", "changeDirection")]
+    revision = re.search(r"(const revision=.*?;)\n", script)[1]
+    payload = _payload(page)
+    check = f"const graph={json.dumps(payload['graph'])};\n" + f"const contexts={json.dumps(payload['contexts'])};\n" + f"const revisions={json.dumps(payload['revisions'])};\n" + f"const context_revisions={json.dumps(payload['context_revisions'])};\n" + """
+const explanations={result:{graph_basis:'retained_inputs'}};
+const globalById=new Map(graph.nodes.map(n=>[n.id,n]));
+function connections(g){return g.edges.map(e=>({from:e.src,to:e.dst}));}
+const globalView={graph,byId:globalById,pairs:connections(graph),basis:'current'};
+const location={hash:''},trail=[];
+const controls={direction:{value:'upstream'},'link-state':{textContent:''}};
+const el=id=>controls[id];
+let focusId=null,activeId=null,activeDirection='upstream',impactRootId=null;
+let view=globalView,pendingHash=null;
+function render(){}
+""" + revision + "\n" + "\n".join(functions) + "\n" + """
+setSelection('result','input',true,'upstream',null);
+if(view.basis!=='historical')throw Error('upstream input is not retained');
+changeDirection('downstream');
+if(view.basis!=='current'||impactRootId!=='input')throw Error('current impact root not selected');
+if(JSON.stringify(walk(impactRootId,'downstream').order)!==
+   JSON.stringify(['input','affected-a','affected-b']))
+ throw Error('two current affected results missing');
+const anchored=new URLSearchParams(location.hash.slice(1));
+if(anchored.get('impact')!=='input'||anchored.get('impact_rev')!==revisions.input||
+   anchored.get('basis')!=='current')throw Error('impact link is not pinned to current input');
+setSelection('result','affected-a');
+if(impactRootId!=='input'||walk(impactRootId,'downstream').order.length!==3)
+ throw Error('click moved the impact anchor');
+const prior=trail.pop();setSelection(prior[0],prior[1],false,prior[2],prior[3]);
+if(impactRootId!=='input'||activeId!=='input')throw Error('Back lost current impact root');
+changeDirection('upstream');
+if(view.basis!=='historical'||activeId!=='result'||impactRootId!==null)
+ throw Error('Inputs to result did not restore selected retained result');
+const impact=trail.pop();setSelection(impact[0],impact[1],false,impact[2],impact[3]);
+if(view.basis!=='current'||impactRootId!=='input')
+ throw Error('Back did not restore current impact root after direction switch');
+const earlier=trail.pop();setSelection(earlier[0],earlier[1],false,earlier[2],earlier[3]);
+if(view.basis!=='historical'||activeId!=='input'||impactRootId!==null)
+ throw Error('Back did not restore retained input inspection');
+if(new URLSearchParams(location.hash.slice(1)).get('rev')!==context_revisions.result.input)
+ throw Error('retained input revision lost after Back');
+"""
+    result = subprocess.run(["node", "-e", check], capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr
+    assert 'p.get("impact")' in script and 'p.get("impact_rev")' in script

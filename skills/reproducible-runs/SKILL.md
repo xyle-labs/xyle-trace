@@ -27,13 +27,25 @@ The runner retains code, concrete inputs, parameters, policy receipt, environmen
 identity, and canonical JSON outputs. It checks current gates before new execution.
 
 The managed runner registers its retained output artifact and producer link.
-If the task also needs a working file such as `result.json`, copying the retained
-output creates a separate deliverable. Record that materialization as a distinct
-reported transformation: use the retained artifact as input, start before the
-copy, register the actual destination, and finish with that output and its path.
-Inspect the recorded hash and `doctor` result. Do not leave the delivered file
-registered without its producer/hash, relabel the copy as managed execution, or
-duplicate the original calculation as a reported run.
+When the task needs a working file, supply `--out result.json` on execute or
+replay. After a successful calculation the runner atomically delivers those same
+retained JSON bytes and records a separate working artifact, producer, and hash
+on the same managed run. Read `working_output` and `output_file_hashes` in the
+receipt and inspect `doctor`. Do not create a duplicate reported calculation or
+copy ceremony for this runner-managed delivery.
+
+Working paths are project-relative and cannot overlap inputs, sources, scripts,
+policy, retained storage, or protected host/credential paths. Existing untracked
+files and changed prior outputs are refused. A same-key retry verifies delivery;
+it never restores a deleted file or overwrites edits. Include the intended path
+in the original request and use a fresh key for a different delivery. If a run
+remains `started` after interruption or a final database failure, inspect both
+graph and working file; do not assume completion or reexecute blindly.
+
+If a later tool copies or changes an output outside this runner's `--out`
+operation, that is a separate materialization. Record its actual transformation,
+start before the copy, then finish with the observed destination and hash. Do not
+leave that file without a producer or present an external copy as managed replay.
 
 Use `xyle-trace-run replay` with the same configuration, a fresh `--key`, and
 `--run` equal to a successful managed run's ID. Replay consumes retained contents

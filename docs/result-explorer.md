@@ -94,6 +94,11 @@ cycles are visited once; the complete linear path remains available, and selecti
 a hidden node reveals its branch and page. Current graph context and retained
 historical inputs are labeled explicitly. See [the workflow](workflow.md) for commands.
 
+Selecting an input or source before choosing `Affected outputs` anchors the
+current dependency view to that node. Following affected results keeps the
+anchor fixed. Links and Back preserve the impact root, current/retained basis,
+and inspected versions; returning upstream restores the selected result's context.
+
 Acceptance requires an end-to-end browser test that selects a result, follows
 its calculation and record backing to an exact source version, inspects an
 assumption, and shows the impact of a correction. Include missing evidence,

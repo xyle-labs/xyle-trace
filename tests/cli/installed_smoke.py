@@ -122,6 +122,30 @@ def workflow(directory):
     assert pinned["selection"] == exact["selection"]
     (root / "historical-explanation.json").write_text(json.dumps(exact, indent=2) + "\n")
 
+    delivered = subprocess.run(
+        ["xyle-trace-run", "replay", *common, "--contracts", str(root / "contracts.yaml"),
+         "--key", "delivered-replay", "--run", report["original"]["id"], "--out", "result.json"],
+        text=True, capture_output=True, check=False,
+    )
+    assert delivered.returncode == 0, delivered.stdout + delivered.stderr
+    working_run = json.loads(delivered.stdout)
+    working = working_run["data"]["working_output"]
+    assert json.loads((root / "result.json").read_bytes()) == {"total": 30}
+    assert working["content_hash"] == (
+        "sha256:" + hashlib.sha256((root / "result.json").read_bytes()).hexdigest()
+    )
+    working_explanation = json.loads(command(
+        "explain", *common, "--node", working["node_id"], "--selector", "/total",
+    ))["explanation"]
+    assert working_explanation["selection"]["value"] == 30
+    assert working_explanation["selection"]["value_available"] is True
+    assert working_explanation["selection"]["run_id"] == working_run["id"]
+    delivered_health = json.loads(command(
+        "doctor", *common, "--contracts", str(root / "contracts.yaml"), expected=1,
+    ))
+    assert delivered_health["integrity"]["ok"] is True
+    assert working["node_id"] not in delivered_health["capture"]["orphan_artifact_ids"]
+
     report_options = ["export", *common, "--format", "report", "--node", artifact_id]
     preview = json.loads(command(*report_options, "--preview"))
     assert preview["path"] is None
@@ -172,6 +196,7 @@ def workflow(directory):
     assert restored["content_complete"] is True and restored["policy_included"] is True
     assert not (restored_root / "sum.py").exists()
     assert not (restored_root / "source.txt").exists()
+    assert not (restored_root / "result.json").exists()
     assert not list(restored_root.rglob("*.py"))
     restored_common = [
         "--project",
@@ -191,6 +216,10 @@ def workflow(directory):
     assert restored_explanation["selection"] == exact["selection"]
     assert restored_explanation["inputs"] == exact["inputs"]
     assert restored_explanation["calculations"] == exact["calculations"]
+    restored_working = json.loads(command(
+        "explain", *restored_common, "--node", working["node_id"], "--selector", "/total",
+    ))["explanation"]
+    assert restored_working["selection"] == working_explanation["selection"]
     (restored_root / "historical-explanation.json").write_text(
         json.dumps(restored_explanation, indent=2) + "\n"
     )
@@ -230,6 +259,8 @@ def workflow(directory):
         "retained_value": exact["selection"]["value"],
         "doctor_exit_code": 1,
         "doctor_integrity_ok": health["integrity"]["ok"],
+        "working_artifact_id": working["node_id"],
+        "working_content_hash": working["content_hash"],
     }
     (Path(directory) / "smoke-summary.json").write_text(json.dumps(summary, indent=2) + "\n")
 

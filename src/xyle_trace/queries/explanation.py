@@ -170,6 +170,33 @@ def _related_decisions(nodes, included):
     return result
 
 
+def _working_output_matches(node, run):
+    output = run.data.get("output")
+    working = run.data.get("working_output")
+    hashes = run.data.get("output_file_hashes")
+    return (
+        run.data.get("capture_mode") == "managed"
+        and run.data.get("status") == "succeeded"
+        and isinstance(output, dict)
+        and isinstance(working, dict)
+        and working.get("node_id") == node.id
+        and working.get("path") == node.data.get("path")
+        and working.get("content_hash") == node.data.get("content_hash")
+        and working.get("content_hash") == output.get("content_hash")
+        and output.get("content_hash") is not None
+        and isinstance(hashes, dict)
+        and hashes.get(node.id) == working.get("content_hash")
+    )
+
+
+def _managed_output_matches(node, run):
+    output = run.data.get("output")
+    return isinstance(output, dict) and (
+        all(node.data.get(field) == output.get(field) for field in ("path", "content_hash"))
+        or _working_output_matches(node, run)
+    )
+
+
 def explain_result(
     store,
     project_id,
@@ -213,6 +240,14 @@ def explain_result(
         candidates = direct
     elif node.type == NodeType.RUN:
         candidates = [node]
+    current_working = []
+    if node.type == NodeType.ARTIFACT and direct and all(
+        run.data.get("capture_mode") == "managed"
+        and isinstance(run.data.get("working_output"), dict)
+        and run.data["working_output"].get("node_id") == node.id
+        for run in direct
+    ):
+        current_working = [run for run in direct if _working_output_matches(node, run)]
     if run_id is not None:
         if run_id not in {run.id for run in candidates}:
             raise ExplanationError("invalid_reference", "run did not produce this result")
@@ -221,6 +256,8 @@ def explain_result(
         run = node
     elif len(direct) == 1:
         run = direct[0]
+    elif len(current_working) == 1:
+        run = current_working[0]
     elif len(candidates) == 1:
         run = candidates[0]
     else:
@@ -331,10 +368,7 @@ def explain_result(
             ):
                 try:
                     recorded = _json_blob(root, run.data["output"])
-                    if node.type == NodeType.ARTIFACT and any(
-                        node.data.get(field) != run.data["output"].get(field)
-                        for field in ("path", "content_hash")
-                    ):
+                    if node.type == NodeType.ARTIFACT and not _managed_output_matches(node, run):
                         gaps.append({"kind": "output_reference_mismatch",
                                      "message": "Selected artifact differs from retained run output"})
                     else:

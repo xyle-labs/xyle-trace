@@ -451,6 +451,15 @@ invalid/missing output, and mismatching replay are recorded failures. The config
 timeout bounds the direct subprocess; this is not an OS sandbox or descendant-process
 resource manager. Managed bundles and outputs use the default 25 MiB blob limit.
 
+Optional `--out` delivers the same canonical JSON to a project-relative working
+file after successful execution or replay. The run retains a `working_output`
+descriptor and `output_file_hashes` entry, with a separate stable working Artifact
+and producer edge. New keys can update an unchanged recorded delivery; exact
+retries verify it without restoring missing files or overwriting edits. Retained
+outputs stay immutable. Filesystem publication and database commit are separate;
+an interrupted final commit can leave a file with an ambiguous started run. See
+[delivery and recovery limits](execution.md#deliver-a-working-json-file).
+
 Replay verifies original bundle/output integrity and interpreter/platform identity,
 then consumes those retained contents and the original policy receipt rather than
 current logical records. A successful matching replay has `capture_mode: managed`,

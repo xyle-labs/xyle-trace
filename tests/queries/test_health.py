@@ -1,3 +1,5 @@
+import pytest
+
 from xyle_trace.core.hashing import hash_bytes
 from xyle_trace.core.snapshots import SnapshotCapture
 from xyle_trace.models.entities import Edge, EdgeType, Node, NodeType
@@ -375,4 +377,132 @@ def test_malformed_run_observations_are_reported_without_crashing(tmp_path):
     }
     assert {"capture_gaps", "output_file_hashes"} <= invalid
     assert report["integrity"]["artifacts"][0]["status"] == "unobserved"
+    store.close()
+
+
+def _managed_working_project(root):
+    from xyle_trace.core.execution import execute
+    from xyle_trace.service import Service
+
+    store = Store(root / ".lineage" / "graph.db")
+    store.upsert_node(Node(project_id="p", type=NodeType.PROJECT, natural_key="p"))
+    service = Service(store, "p", root=root, contracts=[])
+    rows = service.register(
+        {
+            "type": "dataset",
+            "natural_key": "input",
+            "records": [{"key": "row", "data": {"value": 7}}],
+        }
+    )
+    transformation = service.register(
+        {"type": "transformation", "natural_key": "calculate", "data": {}}
+    )
+    (root / "calculate.py").write_text(
+        "import json,sys\n"
+        'inputs=json.load(open(sys.argv[1]))["inputs"]\n'
+        'value=sum(row["record"]["data"]["value"] for item in inputs.values() '
+        'for row in item["records"])\n'
+        'json.dump({"total":value},open(sys.argv[2],"w"))\n'
+    )
+    arguments = {
+        "transformation_id": transformation.node.node.id,
+        "input_ids": [rows.node.node.id],
+        "script": "calculate.py",
+        "out": "result.json",
+    }
+    run = execute(service, key="first", **arguments)
+    return service, rows, run, arguments
+
+
+def test_managed_working_output_tracks_latest_publication_and_detects_drift(tmp_path):
+    from xyle_trace.core.execution import execute
+
+    service, rows, first, arguments = _managed_working_project(tmp_path)
+    try:
+        service.register(
+            {
+                "type": "dataset",
+                "natural_key": "input",
+                "records": [
+                    {
+                        "key": "row",
+                        "data": {"value": 19},
+                        "expected_revision": rows.records[0].revision,
+                    }
+                ],
+            }
+        )
+        second = execute(service, key="second", **arguments)
+        assert (
+            first["data"]["working_output"]["node_id"]
+            == second["data"]["working_output"]["node_id"]
+        )
+        artifact_id = second["data"]["working_output"]["node_id"]
+        report = project_health(service.store, "p", tmp_path, [])
+        working = next(
+            item for item in report["integrity"]["artifacts"] if item["node_id"] == artifact_id
+        )
+        assert working["status"] == "current"
+        assert working["run_id"] == second["id"]
+        assert report["integrity"]["ok"] is True
+        assert len(report["integrity"]["artifacts"]) == 3
+        before = [node.model_dump() for node in service.store.all_nodes("p")]
+        (tmp_path / "result.json").write_text('{"total":999}')
+        changed = project_health(service.store, "p", tmp_path, [])
+        assert (
+            next(
+                item for item in changed["integrity"]["artifacts"] if item["node_id"] == artifact_id
+            )["status"]
+            == "changed"
+        )
+        assert changed["integrity"]["status"] == "failed"
+        assert all(item["status"] == "verified" for item in changed["integrity"]["retained"])
+        assert [node.model_dump() for node in service.store.all_nodes("p")] == before
+    finally:
+        service.store.close()
+
+
+@pytest.mark.parametrize("mismatch", ["descriptor", "artifact"])
+def test_managed_working_descriptor_cannot_disagree_with_verified_file(tmp_path, mismatch):
+    store = Store(tmp_path / "store.db")
+    capture = SnapshotCapture(tmp_path)
+    output = capture.bytes(b'{"total":7}')
+    bundle = capture.bytes(b'{"version":1}')
+    artifact = Node(
+        project_id="p",
+        type=NodeType.ARTIFACT,
+        natural_key="working-output:result.json",
+        data={"path": "result.json", "content_hash": output.content_hash},
+    )
+    run = Node(
+        project_id="p",
+        type=NodeType.RUN,
+        natural_key="managed",
+        data={
+            "capture_mode": "managed",
+            "status": "succeeded",
+            "bundle": {"path": bundle.path, "content_hash": bundle.content_hash},
+            "output": {"path": output.path, "content_hash": output.content_hash},
+            "working_output": {
+                "node_id": artifact.id,
+                "path": "result.json",
+                "content_hash": hash_bytes(b"wrong")
+                if mismatch == "descriptor"
+                else output.content_hash,
+            },
+            "output_file_hashes": {artifact.id: output.content_hash},
+        },
+    )
+    if mismatch == "artifact":
+        artifact.data["content_hash"] = hash_bytes(b"wrong")
+    for node in (artifact, run):
+        store.upsert_node(node)
+    store.upsert_edge(Edge(project_id="p", type=EdgeType.PRODUCED, src=run.id, dst=artifact.id))
+    (tmp_path / "result.json").write_bytes(b'{"total":7}')
+    report = project_health(store, "p", tmp_path, [])
+    assert report["integrity"]["status"] == "failed"
+    assert any(
+        issue["kind"] == "inconsistent_working_output" and issue["node_id"] == run.id
+        for issue in report["integrity"]["graph_issues"]
+    )
     store.close()

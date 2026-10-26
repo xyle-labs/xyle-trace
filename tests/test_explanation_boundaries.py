@@ -8,7 +8,7 @@ from xyle_trace.core.execution import execute
 from xyle_trace.core.hashing import hash_bytes
 from xyle_trace.core.revisions import canonical_json
 from xyle_trace.core.snapshots import SnapshotCapture
-from xyle_trace.models.entities import EdgeType, Node, NodeType
+from xyle_trace.models.entities import Edge, EdgeType, Node, NodeType
 from xyle_trace.service import Service, ServiceError
 from xyle_trace.store.sqlite_store import Store
 
@@ -496,3 +496,83 @@ def test_selecting_a_run_cannot_be_redirected_to_its_replay_ancestor(project):
     with pytest.raises(ServiceError) as error:
         explanation(project, selected_run, run_id=original["id"], selector="/total")
     assert error.value.error.code == "invalid_reference"
+
+
+def working_alias(project, run, path="result.json"):
+    output = run["data"]["output"]
+    node = Node(project_id="p", type=NodeType.ARTIFACT,
+                natural_key=f"working-output:{path}",
+                data={"path": path, "content_hash": output["content_hash"],
+                      "description": "Working JSON output"})
+    project.store.upsert_node(node)
+    producer = project.store.get_node("p", run["id"])
+    producer.data["working_output"] = {
+        "node_id": node.id, "path": path, "content_hash": output["content_hash"]}
+    producer.data["output_file_hashes"] = {node.id: output["content_hash"]}
+    project.store.upsert_node(producer)
+    project.store.upsert_edge(Edge(project_id="p", type=EdgeType.PRODUCED,
+                                   src=producer.id, dst=node.id, data={"provisional": False}))
+    return node
+
+
+def test_managed_working_output_explains_its_retained_value(project):
+    _, run, _ = managed(project)
+    alias = working_alias(project, run)
+    result = explanation(project, alias, selector="/total")
+    assert result["selection"]["value"] == 7
+    assert result["selection"]["value_available"] is True
+    assert result["selection"]["historical"] is True
+    assert result["selection"]["run_id"] == run["id"]
+
+
+def test_current_working_output_selects_its_exact_hash_matching_producer(project):
+    _, first, retained_first = managed(project)
+    working_alias(project, first)
+    _, second, _ = managed(project, key="updated", value=99)
+    alias = working_alias(project, second)
+    result = explanation(project, alias, selector="/total")
+    assert result["selection"]["run_id"] == second["id"]
+    assert result["selection"]["value"] == 99
+    old_on_current = explanation(project, alias, selector="/total", run_id=first["id"])
+    assert old_on_current["selection"]["value_available"] is False
+    assert any(g["kind"] == "output_reference_mismatch" for g in old_on_current["gaps"])
+    assert explanation(project, retained_first, selector="/total")["selection"]["value"] == 7
+
+
+def test_identical_working_outputs_keep_producer_ambiguity_explicit(project):
+    _, first, _ = managed(project)
+    working_alias(project, first)
+    _, second, _ = managed(project, key="another", value=7)
+    alias = working_alias(project, second)
+    result = explanation(project, alias, selector="/total")
+    assert result["selection"]["run_id"] is None
+    assert any(g["kind"] == "ambiguous_producer" for g in result["gaps"])
+
+
+@pytest.mark.parametrize("field", ["node_id", "path", "content_hash"])
+def test_working_output_receipt_cannot_name_another_artifact_or_content(project, field):
+    _, run, _ = managed(project)
+    alias = working_alias(project, run)
+    producer = project.store.get_node("p", run["id"])
+    producer.data["working_output"][field] = "different"
+    project.store.upsert_node(producer)
+    result = explanation(project, alias, selector="/total")
+    assert result["selection"]["value_available"] is False
+    assert any(g["kind"] == "output_reference_mismatch" for g in result["gaps"])
+
+
+@pytest.mark.parametrize("hashes", ["missing", "different", "malformed"])
+def test_working_output_explanation_requires_matching_observed_file_hash(project, hashes):
+    _, run, _ = managed(project)
+    alias = working_alias(project, run)
+    producer = project.store.get_node("p", run["id"])
+    if hashes == "missing":
+        producer.data.pop("output_file_hashes")
+    elif hashes == "malformed":
+        producer.data["output_file_hashes"] = []
+    else:
+        producer.data["output_file_hashes"][alias.id] = "sha256:" + "0" * 64
+    project.store.upsert_node(producer)
+    result = explanation(project, alias, selector="/total")
+    assert result["selection"]["value_available"] is False
+    assert any(g["kind"] == "output_reference_mismatch" for g in result["gaps"])

@@ -40,6 +40,15 @@ Registering a run after a calculation cannot establish that its preflight happen
 before computation. External command execution and retrospective run import are
 not automated by this CLI.
 
+For a compatible managed calculation, `xyle-trace-run execute` or `replay` can
+take `--out result.json`. The runner writes the canonical retained JSON to that
+working file and records its producer and hash. A new execution may replace a
+previously recorded, unchanged working output; untracked files and local edits
+are refused. An exact retry checks the existing file and never silently restores
+or overwrites it. See [execution and delivery](execution.md) for commands and
+interrupted-publication limits. Later copies made outside the runner still need
+their own capture.
+
 ## Inspect a result or recorded JSON field
 
 Copy a result ID from the explorer or a capture response. `--selector` is a JSON
@@ -69,6 +78,12 @@ calculation, parameters, policy, and environment. A replay must retain its
 original bundle reference. These checks detect inconsistent records; the stored
 run reference remains authoritative for retained versions. Hashes do not
 authenticate a database or archive writer who can rewrite that receipt.
+
+A working output is explained through its matching retained result, rather than
+the current file's contents. If several managed runs produced that logical
+working path, a unique matching recorded hash identifies the current producer;
+identical outputs from multiple runs remain explicitly ambiguous. Inspect the
+older run or its immutable retained artifact to examine an earlier version.
 
 Provisional and contradictory paths remain visible as context; they do not
 qualify a run as the result's producer. A path to a source does not prove support.
@@ -113,6 +128,13 @@ readable details, version-aware links, search, and navigation. Large diagrams
 group branches by relationship and offer expansion, collapse, and 80-node paging;
 the linear path retains all connected results. Reports accept
 repeated `--node` selections and provide internal links and print context.
+
+Select an input or source, then choose `Affected outputs` to follow its current
+graph dependencies. The view names that impact root and current basis; clicking
+an affected node keeps the root fixed. Returning to `Inputs to result` restores
+the selected result's retained input context where available. Links and Back
+navigation preserve the root, basis, and version; reported or unknown contexts
+are not labeled historical.
 
 `--preview` returns the projected sharing data and the same rendered-content hash
 as writing that report. Unselected results and unrelated batch-correction values

@@ -157,21 +157,30 @@ function connections(selectedGraph,selectedDependencies){
  }
  return pairs;
 }
-const globalView={graph,byId:globalById,pairs:connections(graph,dependencies)};
+const globalView={graph,byId:globalById,pairs:connections(graph,dependencies),basis:"current"};
 function contextFor(result){
  const selectedGraph=contexts?.[result];
  if(!selectedGraph)return globalView;
  const byId=new Map((selectedGraph.nodes||[]).map(n=>[n.id,n]));
  if(!byId.has(result)&&globalById.has(result))byId.set(result,globalById.get(result));
- return {graph:selectedGraph,byId,pairs:connections(selectedGraph,selectedGraph.dependencies||[])};
+ const explanation=explanations?.[result];
+ const basis=explanation?.graph_basis==="retained_inputs"?"historical":
+  explanation?.graph_basis==="current_context"?"current":
+  explanation?.selection?.historical===true?"historical":
+  explanation?.selection?.historical===false?"current":"unknown";
+ return {graph:selectedGraph,byId,pairs:connections(selectedGraph,selectedGraph.dependencies||[]),basis};
 }
-let focusId=null, activeId=null;
+function selectionView(result,direction){
+ return direction==="downstream"?globalView:contextFor(result);
+}
+let focusId=null, activeId=null, impactRootId=null;
 let view=globalView;
+let activeDirection="upstream";
 const trail=[];
 let pendingHash=null;
 let branchStateKey=null, expandedBranches=new Set(), diagramLimit=80;
 const label=n=>n.natural_key||n.id;
-const revision=(n,result)=>String(context_revisions?.[result]?.[n.id]??revisions?.[n.id]??n.data?.revision??n.data?.content_hash??n.data?.version??n.id);
+const revision=(n,result,basis)=>String((basis!=="current"?context_revisions?.[result]?.[n.id]:undefined)??revisions?.[n.id]??n.data?.revision??n.data?.content_hash??n.data?.version??n.id);
 const human=s=>String(s).replaceAll("_"," ").replace(/\\b\\w/g,c=>c.toUpperCase());
 const display=v=>v===undefined||v===null||v===""?"Not recorded":String(v);
 const dataFor=n=>({...n.data?.metadata,...n.data});
@@ -229,20 +238,30 @@ function diagramPlan(visit,root,shown,expanded,limit){
  return {branchRoots,candidates,visible:candidates.slice(0,limit),
   hiddenCount:Math.max(0,candidates.length-limit)};
 }
-function linkFor(result,node){
- const selectedView=contextFor(result);
- const params=new URLSearchParams({result,result_rev:revision(selectedView.byId.get(result),result),node,rev:revision(selectedView.byId.get(node),result)});
+function linkFor(result,node,direction=activeDirection,impactRoot=impactRootId){
+ const selectedView=selectionView(result,direction);
+ const params=new URLSearchParams({result,basis:selectedView.basis,direction,
+  result_rev:revision(selectedView.byId.get(result),result,selectedView.basis),
+  node,rev:revision(selectedView.byId.get(node),result,selectedView.basis)});
+ if(direction==="downstream"){
+  const root=impactRoot||result;
+  params.set("impact",root);
+  params.set("impact_rev",revision(globalById.get(root),result,"current"));
+ }
  return "#"+params.toString();
 }
-function setSelection(result,node,push=true){
+function setSelection(result,node,push=true,direction=activeDirection,impactRoot=impactRootId){
  if(!globalById.has(result))return;
- const selectedView=contextFor(result);
+ const selectedView=selectionView(result,direction);
  if(!selectedView.byId.has(node))return;
- const changed=result!==focusId||node!==activeId;
- if(!changed&&location.hash===linkFor(result,node))return;
- if(push&&activeId&&changed)trail.push([focusId,activeId]);
- focusId=result;activeId=node;view=selectedView;
- const hash=linkFor(result,node);
+ const selectedImpact=direction==="downstream"?(impactRoot||result):null;
+ if(selectedImpact&&!globalById.has(selectedImpact))return;
+ const changed=result!==focusId||node!==activeId||direction!==activeDirection||selectedImpact!==impactRootId;
+ if(!changed&&location.hash===linkFor(result,node,direction,selectedImpact))return;
+ if(push&&activeId&&changed)trail.push([focusId,activeId,activeDirection,impactRootId]);
+ focusId=result;activeId=node;view=selectedView;activeDirection=direction;impactRootId=selectedImpact;
+ el("direction").value=direction;
+ const hash=linkFor(result,node,direction,selectedImpact);
  if(location.hash!==hash){pendingHash=hash;location.hash=hash;}
  el("link-state").textContent="";
  render();
@@ -251,25 +270,35 @@ function readLink(){
  if(!location.hash){
   pendingHash=null;
   if(!results.length)return false;
-  trail.length=0;focusId=results[0];activeId=focusId;view=contextFor(focusId);
+  trail.length=0;focusId=results[0];activeId=focusId;activeDirection="upstream";impactRootId=null;
+  el("direction").value=activeDirection;view=selectionView(focusId,activeDirection);
   el("link-state").textContent="";render();return true;
  }
  const internal=pendingHash===location.hash;
  pendingHash=null;
  const p=new URLSearchParams(location.hash.slice(1)),result=p.get("result"),node=p.get("node"),rev=p.get("rev"),resultRev=p.get("result_rev");
- const selectedView=contextFor(result);
- if(!globalById.has(result)||!selectedView.byId.has(node)||!results.includes(result)){
+ const direction=p.get("direction")||"upstream";
+ if(!["upstream","downstream"].includes(direction)){
+  el("link-state").textContent="This link has an unknown graph direction.";return false;
+ }
+ const selectedView=selectionView(result,direction);
+ const selectedImpact=direction==="downstream"?(p.get("impact")||result):null;
+ if(!globalById.has(result)||!selectedView.byId.has(node)||!results.includes(result)||
+    (selectedImpact&&!globalById.has(selectedImpact))){
   el("link-state").textContent="This link points to a result or node absent from this export.";return false;
  }
- if(rev!==revision(selectedView.byId.get(node),result)||resultRev!==revision(selectedView.byId.get(result),result)){
-  el("link-state").textContent="Version mismatch: the linked result or node has changed since this link was made. Inspect this export before relying on it.";
+ if(p.get("basis")!==selectedView.basis||rev!==revision(selectedView.byId.get(node),result,selectedView.basis)||
+    resultRev!==revision(selectedView.byId.get(result),result,selectedView.basis)||
+    (direction==="downstream"&&p.get("impact_rev")!==revision(globalById.get(selectedImpact),result,"current"))){
+  el("link-state").textContent="Basis or version mismatch: the linked graph context, result, impact root, or node has changed since this link was made. Inspect this export before relying on it.";
  }else el("link-state").textContent="";
- if(!internal&&focusId&&activeId&&(focusId!==result||activeId!==node)){
+ if(!internal&&focusId&&activeId&&(focusId!==result||activeId!==node||activeDirection!==direction||impactRootId!==selectedImpact)){
   const previous=trail.at(-1);
-  if(previous&&previous[0]===result&&previous[1]===node)trail.pop();
-  else trail.push([focusId,activeId]);
+  if(previous&&previous[0]===result&&previous[1]===node&&previous[2]===direction&&previous[3]===selectedImpact)trail.pop();
+  else trail.push([focusId,activeId,activeDirection,impactRootId]);
  }
- focusId=result;activeId=node;view=selectedView;render();return true;
+ focusId=result;activeId=node;view=selectedView;activeDirection=direction;impactRootId=selectedImpact;
+ el("direction").value=direction;render();return true;
 }
 function make(tag,content,cls){const x=document.createElement(tag);if(cls)x.className=cls;if(content!==undefined)x.textContent=content;return x;}
 function appendValue(parent,value){
@@ -293,18 +322,19 @@ function renderResults(){
   b.append(make("strong",label(n)),make("span",`${readableValue(resultValue(n,id))} ${data.unit||""}`,"value"),
    make("small",`${human(n.type)} · Scope: ${display(data.scope||data.period)}`),
    make("small",`Review: ${display(data.review_status)} · Run: ${display(explanations?.[id]?.execution?.state||data.capture_mode||data.execution_status||data.status)}`));
-  b.onclick=()=>setSelection(id,id);el("results").append(b);
+  b.onclick=()=>setSelection(id,id,true,"upstream",null);el("results").append(b);
  }
 }
 function renderBranches(visit,plan,direction){
  const box=el("branches");box.replaceChildren();
  if(visit.order.length<=80)return;
+ const root=direction==="downstream"?impactRootId:focusId;
  const sizes=new Map();for(const id of visit.order.slice(1)){
   const root=visit.branch.get(id);sizes.set(root,(sizes.get(root)||0)+1);
  }
  const groups=new Map();
  for(const id of plan.branchRoots){
-  const pair=view.pairs.find(p=>direction==="upstream"?p.from===focusId&&p.to===id:p.to===focusId&&p.from===id);
+  const pair=view.pairs.find(p=>direction==="upstream"?p.from===root&&p.to===id:p.to===root&&p.from===id);
   const purpose=pair?.type||"dependency";
   if(!groups.has(purpose))groups.set(purpose,[]);
   groups.get(purpose).push([id,pair]);
@@ -367,10 +397,10 @@ function renderLinear(visit,shown){
 }
 function renderDetails(){
  const n=view.byId.get(activeId);if(!n)return;
- el("heading").textContent=label(n);el("summary").textContent=`${human(n.type)} · ID ${n.id} · Version ${revision(n,focusId)}`;
+ el("heading").textContent=label(n);el("summary").textContent=`${human(n.type)} · ID ${n.id} · ${human(view.basis)} version ${revision(n,focusId,view.basis)}`;
  const fields=el("fields");fields.replaceChildren();
  const data=dataFor(n);
- const value=activeId===focusId?resultValue(n,focusId):null;
+ const value=activeDirection==="upstream"&&activeId===focusId?resultValue(n,focusId):null;
  for(const key of ["text","definition","description","value","unit","scope","period","review_status","status","capture_mode","reproducible","replay_of","execution_status","formula","code_reference","content_hash","uri","retrieval_url","locator","retrieved_at","created_at"]){
   if(key==="value"&&value){field(fields,key,readableValue(value));continue;}
   if(data[key]!==undefined)field(fields,key,data[key]);
@@ -378,7 +408,7 @@ function renderDetails(){
  if(!fields.childNodes.length)fields.append(make("p","No descriptive metadata recorded.","muted"));
  const detail=el("explanation");detail.replaceChildren();
  const exp=explanations?.[focusId];
- const input=Array.isArray(exp?.inputs)?exp.inputs.find(entry=>entry.node_id===activeId):null;
+ const input=activeDirection==="upstream"&&Array.isArray(exp?.inputs)?exp.inputs.find(entry=>entry.node_id===activeId):null;
  if(input){
   const section=make("section");section.append(make("h3",input.basis==="retained"?"Retained input records":"Input records"));
   field(section,"basis",input.basis);
@@ -386,7 +416,8 @@ function renderDetails(){
   else section.append(make("p","No retained input records are available for this node.","muted"));
   detail.append(section);
  }
- if(exp){for(const key of ["selection","calculations","inputs","evidence","assumptions","decisions","gaps","execution"]){
+ if(activeDirection==="downstream")detail.append(make("p","Current graph impact view. Choose Inputs to result to inspect retained calculation and input records.","muted"));
+ else if(exp){for(const key of ["selection","calculations","inputs","evidence","assumptions","decisions","gaps","execution"]){
   const section=make("section");section.append(make("h3",human(key)));appendValue(section,exp[key]);detail.append(section);
  }}else detail.append(make("p","Explanation not available for this result."));
  const related=view.pairs.filter(p=>p.from===activeId||p.to===activeId);
@@ -398,41 +429,51 @@ function renderDetails(){
 }
 function render(){
  renderResults();if(!focusId||!activeId)return;
- const exp=explanations?.[focusId];
- el("basis-state").textContent=exp?.graph_basis==="retained_inputs"||exp?.selection?.historical===true?
+ el("basis-state").textContent=activeDirection==="downstream"?
+  `Current graph affected outputs from ${label(view.byId.get(impactRootId))}; return to Inputs to result for retained inputs`:
+  view.basis==="historical"?
   "Historical retained inputs for this selected run":
-  exp?.graph_basis==="current_context"||exp?.selection?.historical===false?
+  view.basis==="current"?
   "Current graph context; exact historical inputs may be unavailable":
-  "Context basis not recorded";
- const direction=el("direction").value,visit=walk(focusId,direction),type=el("type").value,q=el("search").value.toLowerCase();
+  "Context basis not recorded; inspect the selected result before relying on this path";
+ const direction=activeDirection,root=direction==="downstream"?impactRootId:focusId;
+ const visit=walk(root,direction),type=el("type").value,q=el("search").value.toLowerCase();
  const shown=new Set(visit.order.filter(id=>{const n=view.byId.get(id);return (!type||n.type===type)&&JSON.stringify(n).toLowerCase().includes(q);}));
- shown.add(focusId);
- const key=`${focusId}|${direction}`;
+ shown.add(root);
+ const key=`${focusId}|${direction}|${root}`;
  if(key!==branchStateKey){
   branchStateKey=key;diagramLimit=80;
-  const roots=diagramPlan(visit,focusId,shown,new Set(),80).branchRoots;
+  const roots=diagramPlan(visit,root,shown,new Set(),80).branchRoots;
   expandedBranches=new Set(visit.order.length<=80?roots:[]);
  }
  const activeBranch=visit.branch.get(activeId);
  if(activeBranch&&activeId!==activeBranch)expandedBranches.add(activeBranch);
- let plan=diagramPlan(visit,focusId,shown,expandedBranches,diagramLimit);
+ let plan=diagramPlan(visit,root,shown,expandedBranches,diagramLimit);
  const activePosition=plan.candidates.indexOf(activeId);
  if(activePosition>=diagramLimit){
   diagramLimit=Math.ceil((activePosition+1)/80)*80;
-  plan=diagramPlan(visit,focusId,shown,expandedBranches,diagramLimit);
+  plan=diagramPlan(visit,root,shown,expandedBranches,diagramLimit);
  }
- el("status").textContent=`${plan.visible.length} diagram nodes shown · ${shown.size} of ${visit.order.length} connected nodes match · ${label(view.byId.get(focusId))}`;
+ el("status").textContent=`${plan.visible.length} diagram nodes shown · ${shown.size} of ${visit.order.length} connected nodes match · ${label(view.byId.get(root))}`;
  el("back").disabled=trail.length===0;
  renderBranches(visit,plan,direction);renderDiagram(visit,plan.visible);
  const more=el("diagram-more");more.hidden=plan.hiddenCount===0;
  more.textContent=`Show next ${Math.min(80,plan.hiddenCount)} nodes`;
  renderLinear(visit,shown);renderDetails();
 }
-el("back").onclick=()=>{const prior=trail.pop();if(prior)setSelection(prior[0],prior[1],false);};
+el("back").onclick=()=>{const prior=trail.pop();if(prior)setSelection(prior[0],prior[1],false,prior[2],prior[3]);};
 el("diagram-more").onclick=()=>{diagramLimit+=80;render();};
-for(const id of ["search","type","direction"])el(id).addEventListener("input",render);
+for(const id of ["search","type"])el(id).addEventListener("input",render);
+function changeDirection(direction){
+ if(!focusId)return;
+ if(direction==="downstream"){
+  const root=globalById.has(activeId)?activeId:focusId;
+  setSelection(focusId,root,true,direction,root);
+ }else setSelection(focusId,focusId,true,direction,null);
+}
+el("direction").addEventListener("input",()=>changeDirection(el("direction").value));
 window.addEventListener("hashchange",readLink);
-if(!readLink()&&results.length){focusId=results[0];activeId=focusId;view=contextFor(focusId);render();}
+if(!readLink()&&results.length){focusId=results[0];activeId=focusId;activeDirection="upstream";impactRootId=null;view=selectionView(focusId,activeDirection);render();}
 else if(!results.length){el("status").textContent="No results in this export.";}
 </script></body></html>
 """
