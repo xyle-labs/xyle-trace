@@ -135,5 +135,6 @@ handoff: exact metadata requirements, every CLI and MCP behavior, and the
 limitations section. [docs/concept.md](concept.md) is the original product
 reasoning this toolkit was built from.
 
-Planned onboarding improvements, result exploration, and the separate example
-walkthrough are tracked in [ROADMAP.md](../ROADMAP.md).
+Remaining onboarding and interactive explorer acceptance, live-host validation,
+and the optional separate example walkthrough are tracked in
+[ROADMAP.md](../ROADMAP.md).

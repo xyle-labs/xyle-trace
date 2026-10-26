@@ -319,7 +319,9 @@ read-back path `verified_locator` anchor checks use internally; `content`
 mode is what makes the retained bytes inspectable outside that check, through
 `xyle-trace show --snapshot` or the equivalent `query` request.
 
-`export` accepts JSON and HTML. JSON without a destination returns the existing graph
+`export` accepts JSON, HTML, selected reports, and project bundles; see
+[the workflow](workflow.md) for report preview and bundle options.
+JSON without a destination returns the existing graph
 export inline. JSON with a project-relative destination writes the same canonical
 UTF-8 JSON bytes atomically and returns the relative path, content hash, and node/
 edge counts. Both JSON forms preserve legacy records and share the same hash.
@@ -475,9 +477,11 @@ input contents. Current-data policy gaps remain unresolved by replay.
 using the existing protected atomic file export path. Its response remains a file
 reference, hash, and node/edge counts. JSON inline/file behavior is unchanged.
 The CLI also accepts `export --format html --out ...`, rejects unknown projects,
-and atomically publishes output. It protects the database and sidecars, including
-aliases. CLI `--out` is an explicitly chosen path; the MCP/service exporter adds
-configured project-root, policy-file, and managed-snapshot protections.
+and atomically publishes output through the same protected service path.
+HTML, report, and bundle CLI destinations stay within `--root` (or the root
+inferred from the database location) and protect the database, sidecars, policy,
+and managed snapshots, including aliases. The standalone JSON CLI export retains
+its explicit destination path and database/sidecar protections.
 The CLI also recognizes legacy project data without an explicit Project node;
 an entirely unknown project is rejected.
 
@@ -590,7 +594,7 @@ below verifies the tool workflow; a live host comparison remains separate work.
 releases, records, contracts, and replay instructions. `tests/mcp/test_workflow.py`
 initializes through the CLI and uses real stdio tools for every subsequent graph
 read and write. It covers all eight tools under the modern `2026-07-28` protocol
-and legacy handshake with MCP SDK 2.1.1.
+and legacy handshake with the installed MCP SDK.
 
 The first session binds two observed records with one evidence operation, captures
 a reported sum of 30, and attaches a reviewed claim. A new captured release changes
@@ -712,7 +716,7 @@ whether to trust it.
   against — so seeing it requires a `validate` call. Adding a scratch dataset
   or an ad hoc artifact to a project cannot break its existing contracts.
 
-## Verification and next phase
+## Verification and acceptance
 
 See [capture, explanation, review, sharing, and handoff](workflow.md) for the
 current additional CLI commands and request fields. Existing `lineage.query`
@@ -726,7 +730,7 @@ From an environment with the project development dependencies installed:
 
 ```bash
 .venv/bin/python -m pytest -q
-.venv/bin/python -m ruff check src tests
+.venv/bin/python -m ruff check src tests scripts
 PYTHONPATH=src .venv/bin/python -m xyle_trace.cli.main --help
 ```
 
@@ -736,14 +740,15 @@ correction, persisted claim review state, and recovery from a fresh store sessio
 The remaining tests cover policy errors, project isolation, immutable snapshots,
 rollback, schema compatibility, and export of legacy records.
 
-The MCP server and skills work is complete, along with the toolkit-only
-completion work: retained-input execution/replay and HTML exploration. Domain
-work is no longer excluded: consuming projects live outside this repository and
-outside the package, and feed requirements back against this contract. Toolkit
-completion does not assert that any particular domain workload built on top of
-it is complete.
+The implemented baseline includes the MCP server and skills, retained-input
+execution/replay, installed onboarding/demo, result explanations, project health,
+HTML exploration, selected reports, and portable handoffs. Domain workloads live
+in consuming projects outside this repository and package; their completion is
+separate from these toolkit capabilities.
 
-The next product milestones are onboarding, result-first visualization/reporting,
-and validation through a separate consuming project. See [ROADMAP.md](../ROADMAP.md)
-for the maintained scope and acceptance criteria; these improvements are not
-implied to be complete by the protocol and execution work above.
+Interactive explorer/report acceptance and cross-host validation remain open.
+[Bounded host findings](agent-acceptance.md) record synthetic Codex CLI capture
+and recovery without establishing Claude behavior, live MCP onboarding, or exact
+preflight ordering. See [ROADMAP.md](../ROADMAP.md) for the maintained acceptance
+criteria and optional external example; protocol and package checks do not close
+those behavioral gates.

@@ -583,8 +583,9 @@ def _import_archive(stream, destination, max_blob_bytes, max_total_bytes):
             "project": graph["project_id"],
             "db": ".lineage/graph.db",
             "root": ".",
-            "contracts": "contracts.yaml" if policy is not None else None,
         }
+        if policy is not None:
+            config["contracts"] = "contracts.yaml"
         (temporary / ".lineage" / "config.json").write_text(canonical_json(config) + "\n")
         # The local destination parent must not be concurrently controlled by an adversary.
         if destination.exists() or destination.is_symlink():

@@ -168,3 +168,85 @@ def test_unrelated_run_and_invalid_pointer_are_rejected(service):
     with pytest.raises(ServiceError) as error:
         service.query({"mode": "explain", "node_id": other.node.node.id, "selector": "total"})
     assert error.value.error.code == "invalid_request"
+
+
+def test_managed_claim_keeps_its_current_support_path_to_retained_inputs(service):
+    rows, run, artifact = managed(service)
+    indicator = service.register(
+        {"type": "indicator", "natural_key": "total", "data": {"definition": "Total"}}
+    ).node.node
+    claim = service.register(
+        {"type": "claim", "natural_key": "finding",
+         "data": {"text": "The total is seven", "status": "analytical_inference"}}
+    ).node.node
+    connectors = []
+    for kind, source, target in (
+        ("derived_from", indicator, artifact), ("supports", indicator, claim)
+    ):
+        connectors.append(service.link(
+            {"kind": "edge", "type": kind, "src": source.id, "dst": target.id,
+             "data": {"provisional": False}}
+        ).edge.edge.id)
+    service.decide(
+        {"kind": "correction", "natural_key": "later", "rationale": "Later observation",
+         "changes": [{"dataset_id": rows.node.node.id, "key": "a", "data": {"value": 99},
+                      "expected_revision": rows.records[0].revision}]}
+    )
+
+    result = service.query({"mode": "explain", "node_id": claim.id})
+    assert {claim.id, indicator.id, artifact.id, run["id"], rows.node.node.id} <= {
+        state.node.id for state in result.nodes
+    }
+    assert set(connectors) <= {state.edge.id for state in result.edges}
+    assert any(state.edge.type == "produced" and state.edge.dst == artifact.id
+               for state in result.edges)
+    assert result.explanation["inputs"][0]["records"][0]["record"]["data"] == {"value": 7}
+    assert any(gap["kind"] == "current_selection_context"
+               for gap in result.explanation["gaps"])
+    service.export({"format": "report", "selected_ids": [claim.id], "destination": "claim.html"})
+    report = (service.root / "claim.html").read_text()
+    assert "No upstream connection recorded" not in report
+    assert artifact.natural_key in report
+
+
+def test_managed_explanation_marks_unretained_transformation_metadata(service):
+    _, run, artifact = managed(service)
+    transform_id = run["data"]["execution_request"]["transformation_id"]
+    transform = service.store.get_node("p", transform_id)
+    transform.data["description"] = "A later replacement method"
+    service.store.upsert_node(transform)
+    result = service.query({"mode": "explain", "node_id": artifact.id})
+    assert transform_id not in {state.node.id for state in result.nodes}
+    assert any(gap["kind"] == "transformation_metadata_unretained"
+               for gap in result.explanation["gaps"])
+    assert result.explanation["calculations"][0]["transformation_id"] == transform_id
+
+
+def test_managed_claim_discloses_current_conflicting_and_provisional_branches(service):
+    _, _, artifact = managed(service)
+    claim = service.register(
+        {"type": "claim", "natural_key": "disputed",
+         "data": {"text": "The total is seven", "status": "conflicting_sources"}}
+    ).node.node
+    service.link({"kind": "edge", "type": "supports", "src": artifact.id, "dst": claim.id,
+                  "data": {"provisional": False}})
+    branches = []
+    for kind, provisional in (("contradicts", False), ("supports", True)):
+        dataset = service.register(
+            {"type": "dataset", "natural_key": kind,
+             "records": [{"key": "later", "data": {"value": 99}}]}
+        ).node.node
+        edge = service.link(
+            {"kind": "edge", "type": kind, "src": dataset.id, "dst": claim.id,
+             "data": {"provisional": provisional}}
+        ).edge.edge
+        branches.append(edge)
+    result = service.query({"mode": "explain", "node_id": claim.id})
+    gap = next(g for g in result.explanation["gaps"]
+               if g["kind"] == "current_result_relationships_omitted")
+    assert set(gap["edge_ids"]) == {edge.id for edge in branches}
+    assert set(gap["relationship_types"]) == {"supports", "contradicts"}
+    assert gap["provisional_edge_ids"] == [branches[1].id]
+    assert not {edge.src for edge in branches}.intersection(
+        item["node_id"] for item in result.explanation["inputs"]
+    )

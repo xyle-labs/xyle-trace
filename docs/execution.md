@@ -150,6 +150,8 @@ backing, and edge qualifiers; filter by type, text, or upstream/downstream linea
 The file is self-contained and uses no network resources. Source text is rendered
 as data. Provisional/historical paths remain visible and do not certify support.
 
-CLI export atomically replaces the explicitly selected output file and refuses
-database/sidecar aliases or an unknown project. The MCP/service exporter additionally
-bounds destinations to the configured root and protects policy and snapshot files.
+HTML export uses the same protected service path through CLI and MCP: destinations
+stay within the project root, and database/sidecar aliases, policy files, and
+managed snapshots are protected. CLI `--root` selects that root; otherwise it is
+inferred from the database location. Export atomically replaces a permitted
+destination and refuses an unknown project.

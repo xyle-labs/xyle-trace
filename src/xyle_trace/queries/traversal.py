@@ -7,6 +7,25 @@ _UPSTREAM_EDGES = [t for t, d in EDGE_DIRECTION.items() if d == "upstream"]
 _DOWNSTREAM_EDGES = [t for t, d in EDGE_DIRECTION.items() if d == "downstream"]
 
 
+def _decision_subjects(store: Store, project_id: str, node) -> list[str]:
+    """Resolve stored correction selectors without rewriting immutable receipts."""
+    if node.data.get("kind") in {"methodology", "exclusion"}:
+        return node.data.get("subject_ids", [])
+    subjects = []
+    if node.data.get("kind") == "correction":
+        for change in node.data.get("changes", []):
+            selector = change.get("dataset_id")
+            if not isinstance(selector, str):
+                continue
+            try:
+                dataset = store.dataset_node(project_id, selector)
+            except ValueError:
+                continue  # Ambiguous legacy references cannot establish a dependency.
+            if dataset is not None:
+                subjects.append(dataset.id)
+    return subjects
+
+
 def _dependencies(store: Store, project_id: str) -> list[tuple[str, str]]:
     """Explicit metadata references and row resolutions act as dependency edges."""
     dependencies = store.resolution_dependencies(project_id)
@@ -17,12 +36,7 @@ def _dependencies(store: Store, project_id: str) -> list[tuple[str, str]]:
     }
     for node in nodes.values():
         if node.type == NodeType.DECISION:
-            subjects = []
-            if node.data.get("kind") in {"methodology", "exclusion"}:
-                subjects = node.data.get("subject_ids", [])
-            elif node.data.get("kind") == "correction":
-                subjects = [item.get("dataset_id") for item in node.data.get("changes", [])]
-            for subject in subjects:
+            for subject in _decision_subjects(store, project_id, node):
                 if isinstance(subject, str) and subject in nodes and subject != node.id:
                     dependencies.append((subject, node.id))
         if node.type not in references:

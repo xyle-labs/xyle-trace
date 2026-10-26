@@ -99,3 +99,40 @@ def test_methodology_and_correction_decisions_reach_their_affected_results(tmp_p
         assert method.node.node.id in {state.node.id for state in explained.nodes}
     finally:
         store.close()
+
+
+def test_natural_key_correction_is_visible_without_rewriting_its_receipt(tmp_path):
+    store = Store(tmp_path / "graph.db")
+    try:
+        store.upsert_node(Node(project_id="p", type=NodeType.PROJECT, natural_key="p"))
+        service = Service(store, "p", contracts=[], root=tmp_path)
+        rows = service.register(
+            {"type": "dataset", "natural_key": "inputs",
+             "records": [{"key": "a", "data": {"value": 7}}]}
+        )
+        claim = service.register(
+            {"type": "claim", "natural_key": "result", "data": {"text": "The result"}}
+        ).node.node
+        service.link({"kind": "edge", "type": "supports", "src": rows.node.node.id,
+                      "dst": claim.id, "data": {"provisional": False}})
+        request = {
+            "kind": "correction", "natural_key": "correction", "rationale": "New observation",
+            "changes": [{"dataset_id": "inputs", "key": "a", "data": {"value": 8},
+                         "expected_revision": rows.records[0].revision}],
+        }
+        correction = service.decide(request)
+        explanation = service.query({"mode": "explain", "node_id": claim.id})
+        assert correction.node.node.id in {item["id"]
+                                          for item in explanation.explanation["decisions"]}
+        assert claim.id in service.query(
+            {"mode": "impact", "node_id": correction.node.node.id}
+        ).claims_needing_review
+        assert correction.node.node.data["changes"][0]["dataset_id"] == "inputs"
+        assert service.decide(request).node == correction.node
+        report = service.export({"format": "report", "selected_ids": [claim.id]}).graph
+        reported = next(item["data"] for item in report["nodes"]
+                        if item["id"] == correction.node.node.id)
+        assert reported["changes"] == correction.node.node.data["changes"]
+        assert "omitted_unselected_changes" not in reported
+    finally:
+        store.close()

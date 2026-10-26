@@ -9,7 +9,7 @@ from xyle_trace.core.revisions import revision
 from xyle_trace.core.snapshots import read_snapshot
 from xyle_trace.models import operations as op
 from xyle_trace.models.entities import EDGE_DIRECTION, EdgeType, Node, NodeType
-from xyle_trace.queries.traversal import explain
+from xyle_trace.queries.traversal import _decision_subjects, explain
 
 
 class ExplanationError(ValueError):
@@ -75,7 +75,7 @@ def _validate_bundle(bundle):
             op.Dependency.model_validate(item)
 
 
-def _positive_ancestors(graph, node_id):
+def _positive_pairs(graph):
     pairs = [(item["consumer"], item["dependency"]) for item in graph["dependencies"]]
     for edge in graph["edges"]:
         if edge["type"] == "contradicts" or edge["data"].get("provisional", False):
@@ -85,6 +85,11 @@ def _positive_ancestors(graph, node_id):
             pairs.append((edge["src"], edge["dst"]))
         elif direction == "downstream":
             pairs.append((edge["dst"], edge["src"]))
+    return pairs
+
+
+def _positive_ancestors(graph, node_id):
+    pairs = _positive_pairs(graph)
     seen = {node_id}
     queue = [node_id]
     for current in queue:
@@ -92,6 +97,23 @@ def _positive_ancestors(graph, node_id):
             if consumer == current and dependency not in seen:
                 seen.add(dependency)
                 queue.append(dependency)
+    return seen
+
+
+def _selection_context(graph, node_id, run_id, ancestors):
+    """Current connectors to a selected producer, excluding its upstream inputs."""
+    consumers = {}
+    for consumer, dependency in _positive_pairs(graph):
+        consumers.setdefault(dependency, []).append(consumer)
+    seen = {run_id}
+    queue = [run_id]
+    for current in queue:
+        if current == node_id:
+            continue
+        for consumer in consumers.get(current, []):
+            if consumer in ancestors and consumer not in seen:
+                seen.add(consumer)
+                queue.append(consumer)
     return seen
 
 
@@ -150,13 +172,12 @@ def _select(value, pointer):
     return value
 
 
-def _related_decisions(nodes, included):
+def _related_decisions(store, project_id, nodes, included):
     result = []
     for node in nodes:
         if node.type != NodeType.DECISION:
             continue
-        subjects = set(node.data.get("subject_ids", []))
-        subjects.update(c.get("dataset_id") for c in node.data.get("changes", []))
+        subjects = set(_decision_subjects(store, project_id, node))
         if node.id in included or subjects.intersection(included):
             result.append(
                 {
@@ -351,6 +372,36 @@ def explain_result(
             retained_nodes[run.id] = run.model_dump(mode="json")
             selected = node.model_dump(mode="json")
             retained_nodes[node.id] = selected
+            connectors = _selection_context(graph, node.id, run.id, positive)
+            for item in graph["nodes"]:
+                if item["id"] in connectors:
+                    retained_nodes.setdefault(item["id"], item)
+            connector_edges = [
+                edge for edge in graph["edges"]
+                if edge["src"] in connectors and edge["dst"] in connectors
+                and edge["type"] != "contradicts"
+                and not edge["data"].get("provisional", False)
+                and EDGE_DIRECTION.get(edge["type"]) is not None
+            ]
+            for edge in connector_edges:
+                retained_edges.setdefault(edge["id"], edge)
+            for pair in graph["dependencies"]:
+                if pair["consumer"] in connectors and pair["dependency"] in connectors:
+                    retained_dependencies.setdefault((pair["consumer"], pair["dependency"]), pair)
+            if connectors - {node.id, run.id}:
+                gaps.append({
+                    "kind": "current_selection_context",
+                    "message": "The selected result's path to this run is current graph context; "
+                               "only the run's input provenance is retained historical context",
+                    "node_ids": sorted(connectors - {run.id}),
+                    "edge_ids": sorted(edge["id"] for edge in connector_edges),
+                })
+            gaps.append({
+                "kind": "transformation_metadata_unretained",
+                "node_id": bundle["transformation_id"],
+                "message": "Historical transformation metadata was not retained; "
+                           "the calculation uses the retained code and parameters",
+            })
             historical = {
                 "nodes": list(retained_nodes.values()),
                 "edges": list(retained_edges.values()),
@@ -361,8 +412,30 @@ def explain_result(
                     edge["src"] in retained_nodes
                     and edge["dst"] in retained_nodes
                     and edge["type"] in {"produced", "used_input"}
+                    and edge["id"] not in retained_edges
                 ):
                     historical["edges"].append(edge)
+            shown_edges = {edge["id"] for edge in historical["edges"]}
+            omitted = []
+            for edge in graph["edges"]:
+                direction = EDGE_DIRECTION.get(edge["type"])
+                consumer = edge["src"] if direction == "upstream" else edge["dst"]
+                if (direction is not None and consumer in connectors - {run.id}
+                        and edge["id"] not in shown_edges):
+                    omitted.append(edge)
+            if omitted:
+                gaps.append({
+                    "kind": "current_result_relationships_omitted",
+                    "message": "Additional current result relationships, including any listed "
+                               "contradictions or provisional links, are not retained historical "
+                               "inputs. Inspect the current upstream graph for their context",
+                    "node_ids": sorted({key for edge in omitted
+                                        for key in (edge["src"], edge["dst"])}),
+                    "edge_ids": sorted(edge["id"] for edge in omitted),
+                    "relationship_types": sorted({edge["type"] for edge in omitted}),
+                    "provisional_edge_ids": sorted(edge["id"] for edge in omitted
+                                                   if edge["data"].get("provisional", False)),
+                })
             if run.data.get("output") and (
                 node.type == NodeType.RUN or any(item.id == run.id for item in direct)
             ):
@@ -487,7 +560,7 @@ def explain_result(
             }
         )
     decisions = (
-        _related_decisions(all_nodes, included)
+        _related_decisions(store, project_id, all_nodes, included)
         if not historical
         else [
             {"id": item["id"], **item["data"]}

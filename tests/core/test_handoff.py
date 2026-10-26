@@ -80,6 +80,49 @@ def test_metadata_only_default_is_explicitly_incomplete(project, tmp_path):
     assert not (tmp_path / "metadata" / blob.path).exists()
 
 
+def test_policy_free_restore_can_discover_policy_added_later(project, tmp_path):
+    from xyle_trace.mcp.__main__ import _parser, _resolve
+
+    root, store, _ = project
+    bundle = root / "policy-free.zip"
+    export_project(store, "p", root, bundle)
+    restored = tmp_path / "restored"
+    imported = import_project(bundle, restored)
+
+    assert imported["policy_included"] is False
+    assert not (restored / "contracts.yaml").exists()
+    assert "contracts" not in json.loads((restored / ".lineage/config.json").read_text())
+
+    discovered = _resolve(_parser().parse_args([]), restored, {})
+    assert discovered == (
+        "p",
+        restored / ".lineage/graph.db",
+        restored,
+        restored / "contracts.yaml",
+    )
+    (restored / "contracts.yaml").write_text("[]\n")
+    assert _resolve(_parser().parse_args([]), restored, {}) == discovered
+
+
+def test_policy_free_restore_requires_supplied_policy_before_mcp_start(project, tmp_path):
+    pytest.importorskip("mcp.server")
+    from xyle_trace.mcp.__main__ import _parser, _resolve
+    from xyle_trace.mcp.server import ServerConfig, create_server
+
+    root, store, _ = project
+    store.upsert_node(Node(project_id="p", type=NodeType.PROJECT, natural_key="p"))
+    bundle = root / "policy-free-mcp.zip"
+    export_project(store, "p", root, bundle)
+    restored = tmp_path / "mcp-restored"
+    import_project(bundle, restored)
+    settings = _resolve(_parser().parse_args([]), restored, {})
+
+    with pytest.raises(FileNotFoundError, match="contracts.yaml"):
+        ServerConfig(*settings)
+    (restored / "contracts.yaml").write_text("[]\n")
+    create_server(ServerConfig(*settings))
+
+
 @pytest.mark.parametrize("member", ["../escape", "/absolute", "blobs/../../escape", "unknown"])
 def test_unknown_unsafe_and_duplicate_members_rejected(project, tmp_path, member):
     root, store, _ = project

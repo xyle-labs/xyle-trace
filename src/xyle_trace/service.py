@@ -916,6 +916,18 @@ class Service:
             }
         allowed = set(nodes)
 
+        def included_reference(item, field):
+            reference = item.get(field)
+            if reference in allowed:
+                return True
+            if field != "dataset_id" or not isinstance(reference, str):
+                return False
+            try:
+                dataset = self.store.dataset_node(self.project_id, reference)
+            except ValueError:
+                return False
+            return dataset is not None and dataset.id in allowed
+
         def scoped(value):
             if isinstance(value, list):
                 return [scoped(item) for item in value]
@@ -927,7 +939,8 @@ class Service:
             for key, reference_field in (("changes", "dataset_id"), ("claims", "claim_id")):
                 if isinstance(result.get(key), list):
                     prior = result[key]
-                    result[key] = [item for item in prior if item.get(reference_field) in allowed]
+                    result[key] = [item for item in prior
+                                   if included_reference(item, reference_field)]
                     if len(prior) != len(result[key]):
                         result["omitted_unselected_changes"] = True
             if isinstance(result.get("previous_records"), list):

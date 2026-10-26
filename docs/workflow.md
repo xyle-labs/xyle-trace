@@ -60,7 +60,7 @@ xyle-trace explain --project analysis --db .lineage/graph.db --root . \
 ```
 
 The `explanation` contains selection, calculations, inputs, evidence, assumptions,
-decisions, capture gaps, and execution status. `--run RUN_ID` disambiguates a
+decisions, explicit gaps, and execution status. `--run RUN_ID` disambiguates a
 producer, and `--revision sha256:...` refuses a changed selected node. Recorded
 program code is available only with `--include-code`.
 
@@ -70,8 +70,13 @@ recorded values. An interrupted managed run remains `started`, not `executed`.
 
 Managed explanations use the retained bundle for historical inputs and backing.
 Each report result keeps its own historical context, even when two runs used
-different versions of the same logical dataset. Reported runs expose the absence
-of retained historical inputs. Field inspection checks the exact bytes against
+different versions of the same logical dataset. Connections through intermediate
+results to a managed producer are labeled current graph context. Additional current
+branches omitted from that historical view are listed as gaps with node/edge IDs,
+including contradictory or provisional relationships. Inspect the current upstream
+graph for their full context. Historical transformation metadata is unavailable;
+the retained code and parameters define the recorded calculation. Reported runs
+expose the absence of retained historical inputs. Field inspection checks the exact bytes against
 the recorded output hash and refuses to substitute changed files.
 Retained bundles must agree with the selected run's recorded input IDs,
 calculation, parameters, policy, and environment. A replay must retain its
@@ -85,8 +90,8 @@ working path, a unique matching recorded hash identifies the current producer;
 identical outputs from multiple runs remain explicitly ambiguous. Inspect the
 older run or its immutable retained artifact to examine an earlier version.
 
-Provisional and contradictory paths remain visible as context; they do not
-qualify a run as the result's producer. A path to a source does not prove support.
+Provisional and contradictory paths remain explicit context or named omissions;
+they do not qualify a run as the result's producer. A path to a source does not prove support.
 The consuming application maps a published KPI/API field to its recorded node,
 run, and selector. No authenticated API is fetched during inspection.
 
@@ -104,6 +109,8 @@ capture gaps, and pending claim reviews. Integrity is `verified`, `failed`, or
 options to check explicit local receipt files against the selected graph.
 No automatic project-directory crawl occurs. Exit 1 indicates policy failure or
 integrity that is not fully verified; pending reviews are listed separately.
+Verified health and zero run-capture gaps do not mean an explanation has no gaps:
+current connection context and unretained transformation metadata remain explicit.
 
 Corrections recorded through `decide` now retain prior record values, revisions,
 backing receipts, and rationale. Correction receipts are immutable; use a new key

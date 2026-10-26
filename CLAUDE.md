@@ -65,7 +65,7 @@ Run the existing checks with:
 
 ```bash
 .venv/bin/python -m pytest -q
-.venv/bin/python -m ruff check src tests
+.venv/bin/python -m ruff check src tests scripts
 PYTHONPATH=src .venv/bin/python -m xyle_trace.cli.main --help
 ```
 
@@ -79,7 +79,11 @@ the packaged demo, capture, skills, and project discovery.
 - `README.md` — a first-time-visitor introduction: what it does, a real
   example, install, and links onward.
 - `ROADMAP.md` — the maintained milestones, acceptance criteria, and GitHub tasks.
-- `docs/result-explorer.md` — planned result inspection, visualization, and reports.
+- `docs/result-explorer.md` — implemented explorer/report baseline and remaining
+  interactive acceptance requirements.
+- `docs/workflow.md` — capture, result explanation, health, review, reports, and
+  portable project handoffs.
+- `docs/agent-acceptance.md` — bounded live-host observations and acceptance gaps.
 - `docs/oev-example-brief.md` — the brief for a separate consuming repository;
   keep its analysis, geospatial dependencies, data, and video assets outside this toolkit.
 - `docs/concept.md` — the full project concept: problem, domain model, MCP

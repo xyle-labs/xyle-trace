@@ -138,7 +138,7 @@ smoke test and exact source/skill byte comparison, with wheel SHA-256
 `6b0e2e8c22b1d011a351c28aae7d9c7c1ed9556442137e14b9223b0a716a84b9`.
 That is package verification, not an additional live-host exercise.
 
-### Final-candidate wheel host exercise (2026-10-26)
+### Delivery-capable candidate wheel host exercise (2026-10-26)
 
 A later, fresh synthetic project used the installed candidate wheel with SHA-256
 `8c40159945f9d9878e912ac86aac1eef387512d1477029b7979e659fb397f306`.
@@ -211,13 +211,29 @@ support for arbitrary claims.
 
 After this host exercise, the HTML renderer gained separate projected-view
 checksums in its links. This detects changed record values even when node
-metadata revisions are unchanged. The final wheel SHA-256 is
+metadata revisions are unchanged. That pre-merge candidate wheel's SHA-256 is
 `5dba981a8b41e1b8d4b511c56b0f0e8e5bc9df85ae829c77f3cd929c486a1a1c`.
 All other 41 packaged source/skill entries, including execution, capture, and
-installed guidance, were byte-identical to the live-exercise wheel. The final
-package separately passed the outside-source delivery/explanation/health/report/
+installed guidance, were byte-identical to the live-exercise wheel. That candidate
+separately passed the outside-source delivery/explanation/health/report/
 handoff smoke test. JavaScript behavior tests cover link mismatch warnings;
 this is not interactive browser acceptance or another live-host observation.
+
+### Post-review package verification (2026-10-26)
+
+The subsequent review fixed managed-result connection paths, explicit gaps for
+omitted current relationships, natural-key correction history/report projection,
+and policy-free restore discovery. It also reconciled the documentation and
+updated all CI jobs to the reviewed Actions versions.
+
+The new wheel SHA-256 is
+`b1c6e1e74e894dcaa555adf2755829366f0fcc30fcf5aaa455762c10501df2af`.
+All 42 packaged source/skill entries matched the reviewed source. A fresh virtual
+environment installed that wheel outside the checkout and passed the capture,
+delivery, doctor, exact-result, report-hash, bundle-restore, and history smoke
+test. The full local suite passed 712 tests, with Ruff and diff checks clean.
+These are package and regression checks; no additional live-host exercise or
+interactive browser acceptance is claimed for this artifact.
 
 ## Supported-interface references
 
