@@ -62,8 +62,7 @@ def render_html(
     contexts: dict | None = None,
 ) -> str:
     selected_contexts = contexts if contexts is not None else graph.get("contexts", {})
-    payload = json.dumps(
-        safe_metadata({
+    data = safe_metadata({
             "graph": graph,
             "contexts": selected_contexts,
             "dependencies": dependencies,
@@ -81,7 +80,16 @@ def render_html(
                 }
                 for result_id, context in selected_contexts.items()
             },
-        }),
+        })
+    data["view_revision"] = revision({
+        key: data[key] for key in ("graph", "dependencies", "explanations")
+    })
+    for result_id, context in data["contexts"].items():
+        context["view_revision"] = revision({
+            "context": context, "explanation": data["explanations"].get(result_id),
+        })
+    payload = json.dumps(
+        data,
         ensure_ascii=True,
         sort_keys=True,
     ).replace("<", "\\u003c").replace("&", "\\u0026").replace(">", "\\u003e")
@@ -143,7 +151,7 @@ svg text{fill:#19332d;font:14px system-ui,sans-serif}svg .kind{font-size:11px;fi
 <script id="data" type="application/json">__PAYLOAD__</script>
 <script>
 "use strict";
-const {graph,contexts,dependencies,directions,explanations,selected_ids,revisions,context_revisions}=JSON.parse(document.getElementById("data").textContent);
+const {graph,contexts,dependencies,directions,explanations,selected_ids,revisions,context_revisions,view_revision}=JSON.parse(document.getElementById("data").textContent);
 const el=id=>document.getElementById(id), nodes=Array.isArray(graph.nodes)?graph.nodes:[];
 const globalById=new Map(nodes.map(n=>[n.id,n]));
 const edges=Array.isArray(graph.edges)?graph.edges:[];
@@ -157,7 +165,7 @@ function connections(selectedGraph,selectedDependencies){
  }
  return pairs;
 }
-const globalView={graph,byId:globalById,pairs:connections(graph,dependencies),basis:"current"};
+const globalView={graph,byId:globalById,pairs:connections(graph,dependencies),basis:"current",contextRevision:view_revision};
 function contextFor(result){
  const selectedGraph=contexts?.[result];
  if(!selectedGraph)return globalView;
@@ -168,7 +176,7 @@ function contextFor(result){
   explanation?.graph_basis==="current_context"?"current":
   explanation?.selection?.historical===true?"historical":
   explanation?.selection?.historical===false?"current":"unknown";
- return {graph:selectedGraph,byId,pairs:connections(selectedGraph,selectedGraph.dependencies||[]),basis};
+ return {graph:selectedGraph,byId,pairs:connections(selectedGraph,selectedGraph.dependencies||[]),basis,contextRevision:selectedGraph.view_revision||globalView.contextRevision};
 }
 function selectionView(result,direction){
  return direction==="downstream"?globalView:contextFor(result);
@@ -240,7 +248,7 @@ function diagramPlan(visit,root,shown,expanded,limit){
 }
 function linkFor(result,node,direction=activeDirection,impactRoot=impactRootId){
  const selectedView=selectionView(result,direction);
- const params=new URLSearchParams({result,basis:selectedView.basis,direction,
+ const params=new URLSearchParams({result,basis:selectedView.basis,direction,context_rev:selectedView.contextRevision||"",
   result_rev:revision(selectedView.byId.get(result),result,selectedView.basis),
   node,rev:revision(selectedView.byId.get(node),result,selectedView.basis)});
  if(direction==="downstream"){
@@ -287,7 +295,8 @@ function readLink(){
     (selectedImpact&&!globalById.has(selectedImpact))){
   el("link-state").textContent="This link points to a result or node absent from this export.";return false;
  }
- if(p.get("basis")!==selectedView.basis||rev!==revision(selectedView.byId.get(node),result,selectedView.basis)||
+ if(p.get("basis")!==selectedView.basis||p.get("context_rev")!==(selectedView.contextRevision||"")||
+    rev!==revision(selectedView.byId.get(node),result,selectedView.basis)||
     resultRev!==revision(selectedView.byId.get(result),result,selectedView.basis)||
     (direction==="downstream"&&p.get("impact_rev")!==revision(globalById.get(selectedImpact),result,"current"))){
   el("link-state").textContent="Basis or version mismatch: the linked graph context, result, impact root, or node has changed since this link was made. Inspect this export before relying on it.";

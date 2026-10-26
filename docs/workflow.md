@@ -135,6 +135,8 @@ an affected node keeps the root fixed. Returning to `Inputs to result` restores
 the selected result's retained input context where available. Links and Back
 navigation preserve the root, basis, and version; reported or unknown contexts
 are not labeled historical.
+Links also pin the projected view, including record values and explanations, so
+record changes are detected even when the logical node's metadata is unchanged.
 
 `--preview` returns the projected sharing data and the same rendered-content hash
 as writing that report. Unselected results and unrelated batch-correction values

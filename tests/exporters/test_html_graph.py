@@ -213,6 +213,70 @@ def test_explorer_names_current_and_retained_context_explicitly():
     assert "Current graph context" in page
 
 
+def record_view(current_value, retained_value):
+    result = {"id": "result", "type": "artifact", "data": {}}
+    dataset = {"id": "input", "type": "dataset", "data": {"description": "Stable metadata"}}
+    graph = {"project_id": "p", "nodes": [result, dataset], "edges": [],
+             "datasets": {"input": {"records": [{"key": "A", "data": {"value": current_value}}]}}}
+    contexts = {"result": {"nodes": [result, dataset], "edges": [], "dependencies": [],
+                           "datasets": {}}}
+    explanations = {"result": {"graph_basis": "retained_inputs", "inputs": [
+        {"node_id": "input", "records": [{"record": {"key": "A", "data": {
+            "value": retained_value}}}]}]}}
+    return render_html(graph, [], contexts=contexts, explanations=explanations,
+                       selected_ids=["result"])
+
+
+def test_view_checksums_cover_records_when_node_metadata_is_unchanged():
+    original = _payload(record_view(10, 10))
+    changed = _payload(record_view(12, 11))
+    assert original["revisions"] == changed["revisions"]
+    assert original["context_revisions"] == changed["context_revisions"]
+    assert original["view_revision"] != changed["view_revision"]
+    assert original["contexts"]["result"]["view_revision"] != changed["contexts"]["result"]["view_revision"]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js not installed")
+def test_links_pin_current_and_retained_record_views():
+    pages = [record_view(10, 10), record_view(12, 11)]
+    script = re.search(r"<script>\n(.*?)</script>", pages[0], re.DOTALL)[1]
+    functions = "\n".join(re.search(pattern, script, re.DOTALL)[1] for pattern in (
+        r"(function contextFor\(.*?\n})\n", r"(function selectionView\(.*?\n})\n",
+        r"(const revision=.*?;)\n", r"(function linkFor\(.*?\n})\n",
+        r"(function readLink\(.*?\n})\n"))
+    check = "const payloads=" + json.dumps([_payload(page) for page in pages]) + ";\n"
+    check += "const links=[]; for(const payload of payloads){\n" + """
+const {graph,contexts,explanations,revisions,context_revisions,view_revision}=payload;
+const globalById=new Map(graph.nodes.map(n=>[n.id,n]));
+const globalView={basis:'current',byId:globalById,contextRevision:view_revision};
+const results=['result'],location={hash:''},trail=[];
+const controls={'link-state':{textContent:''},direction:{value:'upstream'}};
+const el=id=>controls[id];
+let focusId=null,activeId=null,activeDirection='upstream',impactRootId=null,pendingHash=null,view=globalView;
+function connections(){return [];}
+function render(){}
+""" + functions + "\n" + """
+const currentLink=linkFor('result','input','downstream','input');
+const retainedLink=linkFor('result','input','upstream',null);
+const current=new URLSearchParams(currentLink.slice(1));
+const retained=new URLSearchParams(retainedLink.slice(1));
+if(current.get('context_rev')!==view_revision)throw Error('current view is not pinned');
+if(retained.get('context_rev')!==contexts.result.view_revision)throw Error('retained view is not pinned');
+if(links.length){for(const oldLink of links[0]){
+ location.hash=oldLink;focusId=null;activeId=null;pendingHash=null;
+ controls['link-state'].textContent='';
+ if(!readLink()||!controls['link-state'].textContent.includes('version mismatch'))
+  throw Error('stale record context was silently accepted');
+}}
+links.push([currentLink,retainedLink]);
+}
+if(links[0][0]===links[1][0]||links[0][1]===links[1][1])throw Error('record changes kept stale links');
+"""
+    result = subprocess.run(["node", "-e", check], text=True, capture_output=True, check=False)
+    assert result.returncode == 0, result.stderr
+    assert 'p.get("context_rev")!==' in script
+
+
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node.js not installed")
 def test_downstream_uses_current_graph_while_upstream_keeps_retained_inputs():
     result = {"id": "result", "type": "artifact", "natural_key": "Result", "data": {}}

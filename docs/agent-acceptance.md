@@ -117,27 +117,107 @@ establish either fact.
 The preserved failed managed attempt records a normal program failure (`program
 exited with code 1`); it was not rewritten into success. The later working-file
 copy gap is an observed agent capture omission. Existing health inspection
-reported it honestly. Future shipped guidance now explains that copying a
-retained result to an ordinary output path is a separate materialization that
-needs its own observed run receipt. That guidance was not injected into this
-exercise or used to repair its graph.
+reported it honestly. This earlier wheel predated runner-managed `--out`
+delivery. Its graph was not repaired; the later candidate below adds that
+capability and was exercised in a new project.
 
 The initial approved phase demonstrates useful capture in one real task, with a
 known output gap. The continuation demonstrates persisted corrections, backing,
 and retained results, but did not complete as a native host turn. Its terminal
-failure cause remains unknown; no third phase was used to make the result look
-complete. Future observers should retain a concise sanitized terminal error
+failure cause remains unknown; no third phase was used for this earlier wheel.
+Future observers should retain a concise sanitized terminal error
 sentence alongside aggregate counters when a native turn fails.
 
-**Host acceptance remains open:** Codex continuation completion, working-output
-capture, and observed transport/ordering need another deliberately scoped check;
-Claude live behavior has not been observed. These findings do not certify general
-host adherence or replace the separate installed-package and protocol tests.
+**Outcome for this earlier wheel:** Codex continuation completion, working-output
+capture, and observed transport/ordering remained open at that stage; Claude
+live behavior had not been observed. These findings do not certify general host
+adherence or replace the separate installed-package and protocol tests.
 
-The final integrated package was separately verified by an outside-source wheel
+At that stage, an integrated package was separately verified by an outside-source wheel
 smoke test and exact source/skill byte comparison, with wheel SHA-256
 `6b0e2e8c22b1d011a351c28aae7d9c7c1ed9556442137e14b9223b0a716a84b9`.
 That is package verification, not an additional live-host exercise.
+
+### Final-candidate wheel host exercise (2026-10-26)
+
+A later, fresh synthetic project used the installed candidate wheel with SHA-256
+`8c40159945f9d9878e912ac86aac1eef387512d1477029b7979e659fb397f306`.
+The wheel's 42 packaged source and skill entries byte-matched the frozen tree;
+an outside-source package smoke check had already passed. Existing ChatGPT
+subscription login was confirmed. The native child retained workspace-write,
+approval-never, ephemeral execution, and ignored user configuration. No capture
+requests or `--out` procedure were supplied in either task prompt, and no graph
+record was manually repaired.
+
+| Check | Initial A=10, B=20 | Fresh-process A=12, B=20 continuation |
+| --- | --- | --- |
+| Native turn and observer | Completed, exit 0; 78.12 s, 18 tool starts, 86,428 bytes; no cap. | Observer stopped the turn at its 24-start budget when start 25 arrived; SIGTERM exit -15 after 58.71 s, 85,793 bytes. This is a self-imposed observation limit, not a host failure. |
+| Observed transport and ordering | Shell command kinds included eight lineage record calls, four managed-run invocations, and one separate validate start; no MCP starts. | Shell command kinds included six lineage record calls, four managed-run invocations, and three separate validate starts; no MCP starts. |
+| Source and row backing | One verified snapshot captured A=10/B=20; both records resolved as evidence backed to the captured CSV lines 2–3. | A second verified snapshot captured A=12/B=20; both current rows matched their referenced snapshot and evidence locator. |
+| Calculation and working output | One preserved failed managed attempt, then a successful total 30 and verified matching replay. `result.json` was 30, had a producing-run receipt, and matched its recorded working-file hash. | Successful total 32 and verified matching replay were durable before the cap. `result.json` was 32 and matched the updated working-file receipt and producing run. |
+| History and review | A claim for 30 was marked supported and reviewed by the agent. | A correction receipt preserved old A=10, its backing, and revision; explicit historical explanation still returned 30 from retained 10/20 while the new result returned 32 from retained 12/20. The old and new claims both remained `needs_review` when stopped. |
+| Integrity and policy | Doctor reported valid policy, verified retained integrity, no capture gaps or orphan artifacts. | Doctor again reported valid policy, verified retained integrity, no capture gaps or orphan artifacts, and no started run. The generated policy and calculation script hashes were unchanged. |
+
+The observer kept aggregate event and safe command-kind counts, plus generic
+sanitized error categories. It did not retain raw commands, event bodies, prompts,
+or outputs. A separate validation command start was visible in each phase; the
+managed runner's internal policy gate and actual computation order were not
+observable from those start events. The observer therefore records preflight
+ordering as unknown, rather than treating a final valid policy as execution-order
+proof. The continuation's generic process-exit category reflects the observer's
+own SIGTERM after its tool cap and does not describe a native Codex error.
+
+The initial turn closed the previous working-output capture gap for this wheel.
+The stopped continuation left correct durable computation and historical
+records. Its historical claim's earlier agent review no longer covered the
+changed claim version, and the new current claim had no recorded review yet;
+both were `needs_review`. The original stopped attempt and its pending reviews
+remain part of this observation, rather than being reclassified as a completed
+turn.
+
+#### Recovery of the saved continuation
+
+One separately authorized natural recovery prompt asked a fresh host process to
+finish the saved work using its existing results. It did not supply capture
+requests or a repair recipe. The CSV, calculation script, policy, installed
+wheel, and graph were not manually edited. This phase used an explicit budget
+of 36 tool starts, 180 seconds, and 192 KiB; it did not rerun the stopped prompt
+under an undisclosed larger cap.
+
+| Recovery check | Observed result |
+| --- | --- |
+| Native turn | Completed, exit 0; 101.06 s, 13 tool starts, 123,579 bytes. No external cap fired. |
+| Transport and computation | Shell inspection/capture/export/validation starts were observed; no MCP starts or managed execution invocation was observed. |
+| Persisted run set | Exactly the same five run IDs and run receipts as the stopped continuation: one preserved failed attempt and four successful managed runs. Recovery added no recorded execution. |
+| Working output and backing | `result.json` remained 32 with a matching registered hash and successful producing-run receipt. Current A=12/B=20 both matched verified captured rows and retained evidence resolutions. |
+| Retained history | All five bundle hashes and all four existing output hashes verified; retained outputs remained 30, 30, 32, 32. Explicit explanations returned 30 from retained 10/20 and 32 from retained 12/20. The correction still preserved old A=10, revision, resolution, and evidence receipt. |
+| Claim review | One new review decision covered both historical and current claims, with matching current-revision receipts. Their texts and support statuses were unchanged; both ended supported/reviewed. These are agent-authored review records, not human judgment or independent support certification. |
+| Health and unchanged inputs | Policy valid, integrity verified, zero pending claims, orphan artifacts, capture gaps, or started runs. Policy and calculation-script hashes matched both earlier audits. |
+| Independent audit | Used the installed wheel and a SQLite read-only/query-only connection. Graph hash unchanged and zero connection writes. No graph repair or model session was performed by the auditor. |
+
+The completed recovery demonstrates continuation from the persisted synthetic
+graph after an observer-imposed stop. It preserves both the interrupted turn
+and the later successful outcome. Observer command categories and the unchanged
+run set support reuse of existing recorded results; they do not prove that no
+unrecorded arithmetic occurred internally or establish preflight execution
+ordering.
+
+**Remaining acceptance gates:** Claude live behavior, the live MCP/onboarding
+path (no MCP use was observed), and exact preflight ordering remain unverified.
+Interactive browser acceptance remains a separate blocked gate. This bounded
+CLI-path exercise supports the synthetic capture, working-file receipt, history,
+and fresh-host recovery; it does not certify general host adherence or semantic
+support for arbitrary claims.
+
+After this host exercise, the HTML renderer gained separate projected-view
+checksums in its links. This detects changed record values even when node
+metadata revisions are unchanged. The final wheel SHA-256 is
+`5dba981a8b41e1b8d4b511c56b0f0e8e5bc9df85ae829c77f3cd929c486a1a1c`.
+All other 41 packaged source/skill entries, including execution, capture, and
+installed guidance, were byte-identical to the live-exercise wheel. The final
+package separately passed the outside-source delivery/explanation/health/report/
+handoff smoke test. JavaScript behavior tests cover link mismatch warnings;
+this is not interactive browser acceptance or another live-host observation.
 
 ## Supported-interface references
 
