@@ -10,7 +10,7 @@ ask a question like "where does this number come from?" and get a real answer.
 
 - Records sources, immutable snapshots, transformations, derived datasets, and
   evidence-backed claims as an agent works, through five installed skills and
-  an eight-tool MCP server — or directly through a typed Python service.
+  an eight-tool MCP server, or directly through typed Python and CLI interfaces.
 - Enforces provenance as a precondition for computation: a project's
   `contracts.yaml` blocks a run until its inputs are backed by exact evidence
   or a recorded assumption, instead of relying on the agent to remember.
@@ -104,9 +104,9 @@ section](docs/core-contract.md#limitations); the short version:
   rather than passed or failed.
 - Node IDs are derived from the project ID; renaming a project re-derives
   them. Choose the project name deliberately.
-- Live agent adherence to the five skills is unverified. Protocol
-  compatibility is tested; whether a given host's agent actually follows the
-  skills is a separate, unverified question.
+- Live agent adherence depends on the host and task. Protocol compatibility
+  is tested; [bounded live-host findings](docs/agent-acceptance.md) describe
+  observed behavior and the remaining acceptance gaps.
 - The toolkit records the provenance an agent reports. It cannot detect a
   source the agent never mentioned.
 

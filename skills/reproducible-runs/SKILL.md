@@ -26,6 +26,15 @@ inputs include `file_base64`; consume those bytes, not mutable original paths.
 The runner retains code, concrete inputs, parameters, policy receipt, environment
 identity, and canonical JSON outputs. It checks current gates before new execution.
 
+The managed runner registers its retained output artifact and producer link.
+If the task also needs a working file such as `result.json`, copying the retained
+output creates a separate deliverable. Record that materialization as a distinct
+reported transformation: use the retained artifact as input, start before the
+copy, register the actual destination, and finish with that output and its path.
+Inspect the recorded hash and `doctor` result. Do not leave the delivered file
+registered without its producer/hash, relabel the copy as managed execution, or
+duplicate the original calculation as a reported run.
+
 Use `xyle-trace-run replay` with the same configuration, a fresh `--key`, and
 `--run` equal to a successful managed run's ID. Replay consumes retained contents
 and the original policy receipt; it does not authorize current edited inputs.

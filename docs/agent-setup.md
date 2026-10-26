@@ -272,6 +272,8 @@ tool's payload under `result`; failures set `isError` and return an `error` obje
 These client examples were checked against official documentation on 2026-09-06.
 The adapter has SDK stdio tests, and the skill files have structural validation;
 neither proves a live Codex or Claude session follows the workflow correctly.
+See [the bounded live-host protocol and findings](agent-acceptance.md) for observed
+behavior and remaining acceptance gaps.
 The [minimal protocol fixture](../examples/minimal/README.md) now verifies restart
 recovery, revision-safe retries, and explicit review through real stdio.
 [Local execution and replay](execution.md) retains concrete input versions and

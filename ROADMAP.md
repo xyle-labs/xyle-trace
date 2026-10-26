@@ -25,8 +25,9 @@ The current implementation adds an installed synthetic demo and CLI capture,
 project health inspection, retained result explanations, correction receipts,
 a connected offline explorer, selected reports with preview, and verified
 project handoffs. The interfaces and limitations are in [the workflow](docs/workflow.md).
-Interactive browser acceptance and live agent adherence remain unverified;
-these capabilities do not close those acceptance gates by themselves.
+Interactive browser acceptance and the live-host comparison remain outstanding;
+[bounded host findings](docs/agent-acceptance.md) track observed behavior and gaps.
+These capabilities do not close those acceptance gates by themselves.
 
 ## Capability boundaries
 

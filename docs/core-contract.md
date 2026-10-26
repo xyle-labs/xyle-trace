@@ -541,20 +541,20 @@ read before operations that reload policies themselves. Query, export, snapshot,
 and finish retain their existing policy-loading behavior. Imports open no database
 or server; startup diagnostics and logs use stderr, preserving protocol stdout.
 
-The installed and tested SDK is 2.1.1, within the optional `mcp>=2,<3` constraint.
+The installed and tested SDK is 2.2.0, within the optional `mcp>=2,<3` constraint.
 Its generated argument and union-output behavior was checked against local SDK
 code and the [SDK structured output documentation](https://py.sdk.modelcontextprotocol.io/servers/structured-output/).
 Tests exercise real stdio clients using the modern protocol and the legacy
 handshake, including two independent servers competing over one database.
 All tool result schemas are exercised. The continuation fixture also covers both
-handshakes. This is SDK compatibility evidence; live Codex/Claude skill behavior
-remains a separate unverified check.
+handshakes. This is SDK compatibility evidence; [live-host findings](agent-acceptance.md)
+track the separate behavioral observations and remaining acceptance gaps.
 
-A separate installation without MCP passes 408 core tests (four MCP test
-modules skip: `test_main_discovery.py`, `test_server.py`, `test_stdio.py`, and
-`test_workflow.py`), imports the service, and runs the installed core CLI. Its
-optional MCP command exits with installation guidance rather than a traceback.
-With MCP installed, 439 tests pass.
+Core-only CI installs without MCP, skips the four MCP test modules
+(`test_main_discovery.py`, `test_server.py`, `test_stdio.py`, and `test_workflow.py`),
+imports the service, and runs the installed core CLI. Its optional MCP command
+exits with installation guidance rather than a traceback. The full CI matrix also
+tests with MCP installed; current test counts belong to those check results.
 
 ## Portable agent skills
 
@@ -663,12 +663,14 @@ whether to trust it.
   a re-derived one, so a replay bundle survives a rename even though live
   lookups by ID would not. Choose a project name deliberately before you have
   much to lose from changing it.
-- **Live agent adherence to the five skills is unverified.** SDK protocol
+- **Live agent adherence depends on the host and task.** SDK protocol
   compatibility — that the MCP tools respond correctly over stdio, under both
   the modern and legacy handshakes — is tested (see [protocol continuation
   fixture](#protocol-continuation-fixture)). Whether a given host's agent
   actually reads and follows the installed skills during real work is a
-  separate behavioral question this repository's tests do not answer.
+  separate behavioral question this repository's tests do not answer. The
+  [bounded live-host findings](agent-acceptance.md) report observations without
+  treating them as general reliability or full cross-host acceptance.
 - **The toolkit records what the agent reports, nothing it doesn't.** It has
   no way to detect a source the agent consulted but never registered, a
   transformation it ran but never recorded, or a claim it drafted but never
