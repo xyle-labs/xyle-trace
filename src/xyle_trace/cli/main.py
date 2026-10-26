@@ -60,6 +60,10 @@ code edits.
 - MCP run capture is `reported` and never reproducible. Use `xyle-trace-run`
   for retained-input execution and verified replay when a program fits its
   standard-library Python/JSON contract.
+- If MCP is unavailable, the installed `xyle-trace record` command accepts the
+  same typed capture requests from a JSON file or standard input. Read the
+  lineage skill's CLI fallback instructions; run capture remains `reported`
+  and does not execute the calculation.
 """
 
 

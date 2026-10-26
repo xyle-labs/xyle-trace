@@ -1,5 +1,9 @@
 import json
 import re
+import shutil
+import subprocess
+
+import pytest
 
 from xyle_trace.exporters.html_graph import render_html
 
@@ -134,3 +138,76 @@ def test_explorer_exposes_structured_result_and_selected_input_records():
     assert "entry.node_id===activeId" in page
     assert "pendingHash" in page
     assert "trail.length=0" in page
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js not installed")
+def test_large_diagram_branch_plan_expands_and_pages_without_losing_nodes():
+    ids = ["result", "a", "b", "shared", *(f"tail{i}" for i in range(120))]
+    edges = [("result", "a"), ("result", "b"), ("a", "shared"), ("b", "shared"),
+             ("shared", "a"), ("shared", "tail0"),
+             *((f"tail{i}", f"tail{i + 1}") for i in range(119))]
+    graph = {"project_id": "p", "nodes": [
+        {"id": node_id, "type": "dataset", "natural_key": node_id, "data": {}}
+        for node_id in ids
+    ], "edges": [{"src": src, "dst": dst, "type": "depends_on", "data": {}}
+                 for src, dst in edges], "datasets": {}}
+    page = render_html(graph, [])
+    assert 'id="branches"' in page and 'id="diagram-more"' in page
+    assert 'role="group"' in page and 'role="img"' not in page
+    script = re.search(r"<script>\n(.*?)</script>", page, re.DOTALL)[1]
+    planner = re.search(
+        r"(function walk\(.*?\n}\nfunction diagramPlan\(.*?\n})\nfunction ", script, re.DOTALL
+    )[1]
+    check = planner + f"\nconst edges={json.dumps(_payload(page)['graph']['edges'])};\n" + """
+const view={pairs:edges.map(e=>({from:e.src,to:e.dst})),
+ byId:new Map(['result','a','b','shared',...Array.from({length:120},(_,i)=>`tail${i}`)]
+  .map(id=>[id,{id}]))};
+const visit=walk('result','upstream');
+if(visit.order.length!==124||new Set(visit.order).size!==124)throw Error('cycle or shared node repeated');
+if(visit.branch.get('shared')!=='a'||visit.branch.get('tail119')!=='a')throw Error('branch assignment');
+const shown=new Set(visit.order);
+const initial=diagramPlan(visit,'result',shown,new Set(),80);
+if(JSON.stringify(initial.visible)!==JSON.stringify(['result','a','b']))throw Error('collapsed branches');
+const expanded=diagramPlan(visit,'result',shown,new Set(['a']),80);
+if(expanded.visible.length!==80||expanded.hiddenCount!==44)throw Error('first page');
+const more=diagramPlan(visit,'result',shown,new Set(['a']),160);
+if(more.visible.length!==124||more.hiddenCount!==0||!more.visible.includes('tail119'))throw Error('expanded page');
+"""
+    result = subprocess.run(["node", "-e", check], capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js not installed")
+def test_selected_value_preserves_recorded_null_and_empty_structures():
+    graph = {"project_id": "p", "nodes": [], "edges": [], "datasets": {}}
+    script = re.search(r"<script>\n(.*?)</script>", render_html(graph, []), re.DOTALL)[1]
+    functions = re.search(
+        r"(function valueState\(.*?\n}\nfunction readableValue\(.*?\n})\n",
+        script, re.DOTALL,
+    )[1]
+    check = functions + """
+const cases=[
+ [{value_available:true,value:null},undefined,'null'],
+ [{value_available:false,value:30},30,'Not recorded'],
+ [{value:{}},undefined,'{}'],
+ [{value:[]},undefined,'[]'],
+ [{value:false},undefined,'false'],
+ [{value_available:true,value:''},undefined,'""'],
+ [{value:null},undefined,'Not recorded'],
+ [undefined,42,'42'],
+];
+for(const [selection,fallback,want] of cases){
+ const got=readableValue(valueState(selection,fallback));
+ if(got!==want)throw Error(`${JSON.stringify(selection)}: ${got} != ${want}`);
+}
+"""
+    result = subprocess.run(["node", "-e", check], capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr
+
+
+def test_explorer_names_current_and_retained_context_explicitly():
+    graph = {"project_id": "p", "nodes": [], "edges": [], "datasets": {}}
+    page = render_html(graph, [])
+    assert 'id="basis-state"' in page
+    assert "Historical retained inputs" in page
+    assert "Current graph context" in page

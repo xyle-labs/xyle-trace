@@ -55,11 +55,20 @@ decisions, capture gaps, and execution status. `--run RUN_ID` disambiguates a
 producer, and `--revision sha256:...` refuses a changed selected node. Recorded
 program code is available only with `--include-code`.
 
+`selection.value_available` distinguishes a recorded JSON `null` from an
+unavailable value. Empty objects, lists, strings, `false`, and zero remain valid
+recorded values. An interrupted managed run remains `started`, not `executed`.
+
 Managed explanations use the retained bundle for historical inputs and backing.
 Each report result keeps its own historical context, even when two runs used
 different versions of the same logical dataset. Reported runs expose the absence
 of retained historical inputs. Field inspection checks the exact bytes against
 the recorded output hash and refuses to substitute changed files.
+Retained bundles must agree with the selected run's recorded input IDs,
+calculation, parameters, policy, and environment. A replay must retain its
+original bundle reference. These checks detect inconsistent records; the stored
+run reference remains authoritative for retained versions. Hashes do not
+authenticate a database or archive writer who can rewrite that receipt.
 
 Provisional and contradictory paths remain visible as context; they do not
 qualify a run as the result's producer. A path to a source does not prove support.
@@ -100,8 +109,9 @@ xyle-trace export --project analysis --db .lineage/graph.db --root . \
 ```
 
 The explorer has result cards, a connected diagram, a linear keyboard path,
-readable details, version-aware links, search, and navigation. The diagram bounds
-its visible nodes; the linear path retains the connected results. Reports accept
+readable details, version-aware links, search, and navigation. Large diagrams
+group branches by relationship and offer expansion, collapse, and 80-node paging;
+the linear path retains all connected results. Reports accept
 repeated `--node` selections and provide internal links and print context.
 
 `--preview` returns the projected sharing data and the same rendered-content hash

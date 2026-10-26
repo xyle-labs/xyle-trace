@@ -88,9 +88,11 @@ The HTML export now has result cards, a connected SVG dependency view, a linear
 keyboard path, readable explanation sections, version-aware links, and optional
 raw metadata. Selected reports have their own historical contexts, print
 formatting, and a projected-data preview. Source text and executable code are
-omitted from these sharing defaults. The current diagram caps visible nodes at
-80 while retaining the complete linear path; per-branch expansion and richer
-grouping remain refinements. See [the workflow](workflow.md) for commands.
+omitted from these sharing defaults. Large diagrams group branches by relationship,
+with per-branch expansion/collapse and 80-node paging. Shared dependencies and
+cycles are visited once; the complete linear path remains available, and selecting
+a hidden node reveals its branch and page. Current graph context and retained
+historical inputs are labeled explicitly. See [the workflow](workflow.md) for commands.
 
 Acceptance requires an end-to-end browser test that selects a result, follows
 its calculation and record backing to an exact source version, inspects an

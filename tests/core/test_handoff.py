@@ -305,3 +305,61 @@ def test_policy_alias_fix_does_not_allow_project_symlinks_or_escape(project, tmp
     with pytest.raises(ValueError):
         export_project(store, "p", root.resolve(), bundle, contracts_path=policy)
     assert not bundle.exists()
+
+
+def test_zip64_directory_limits_apply_without_classic_sentinel_fields(monkeypatch):
+    import io
+    import struct
+
+    from xyle_trace.core import handoff
+
+    monkeypatch.setattr(handoff, "MAX_MEMBERS", 2)
+    # ZIP readers honor this locator even when classic fields are not saturated.
+    # Reject before a standard ZIP parser allocates the declared central directory.
+    oversized = handoff.MAX_MEMBERS * 1024 + 1
+    zip64 = struct.pack("<4sQ2H2L4Q", b"PK\x06\x06", 44, 45, 45, 0, 0, 1, 1, oversized, 0)
+    locator = struct.pack("<4sLQL", b"PK\x06\x07", 0, oversized, 1)
+    classic = struct.pack("<4s4H2LH", b"PK\x05\x06", 0, 0, 1, 1, 1, 0, 0)
+    with pytest.raises(ValueError, match="limit"):
+        handoff._check_directory(io.BytesIO(bytes(oversized) + zip64 + locator + classic))
+
+
+def test_corrupt_deflated_blob_is_a_clean_failed_import(project, tmp_path):
+    import struct
+
+    root, store, _ = project
+    bundle = root / "deflated.zip"
+    export_project(store, "p", root, bundle, include_content=True)
+    with zipfile.ZipFile(bundle) as archive:
+        entries = {name: archive.read(name) for name in archive.namelist()}
+    with zipfile.ZipFile(bundle, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name, data in entries.items():
+            archive.writestr(name, data)
+    with zipfile.ZipFile(bundle) as archive:
+        info = next(item for item in archive.infolist() if item.filename.startswith("blobs/"))
+    payload = bytearray(bundle.read_bytes())
+    name_size, extra_size = struct.unpack_from("<HH", payload, info.header_offset + 26)
+    offset = info.header_offset + 30 + name_size + extra_size
+    payload[offset] = 0x07  # Invalid DEFLATE block type, while ZIP framing remains intact.
+    bundle.write_bytes(payload)
+    destination = tmp_path / "failed-restore"
+    with pytest.raises(ValueError, match="archive"):
+        import_project(bundle, destination)
+    assert not destination.exists()
+    assert list(tmp_path.glob(".handoff-*")) == []
+
+
+def test_valid_zip64_handoff_round_trip_with_unsaturated_classic_fields(
+    project, tmp_path, monkeypatch
+):
+    root, store, _ = project
+    monkeypatch.setattr(zipfile, "ZIP64_LIMIT", 128)
+    bundle = root / "zip64.zip"
+    export_project(store, "p", root, bundle, include_content=True)
+    destination = tmp_path / "zip64-restored"
+    import_project(bundle, destination)
+    restored = Store(destination / ".lineage" / "graph.db", create=False)
+    try:
+        assert export_graph(restored, "p") == export_graph(store, "p")
+    finally:
+        restored.close()

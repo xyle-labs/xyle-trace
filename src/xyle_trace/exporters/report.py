@@ -1,6 +1,7 @@
 """Curated, printable HTML report for explicitly selected provenance results."""
 
 import hashlib
+import json
 import re
 from html import escape
 
@@ -22,16 +23,22 @@ def _human(value) -> str:
 def _render_value(value) -> str:
     if isinstance(value, dict):
         if not value:
-            return '<span class="muted">Not recorded</span>'
+            return "{}"
         return "<dl>" + "".join(
-            f"<dt>{_text(_human(key))}</dt><dd>{_render_value(item)}</dd>"
+            f"<dt>{_text(_human(key))}</dt><dd>{_render_value('Not recorded' if key == 'value' and value.get('value_available') is False else item)}</dd>"
             for key, item in value.items()
         ) + "</dl>"
     if isinstance(value, list):
         if not value:
-            return '<span class="muted">Not recorded</span>'
+            return "[]"
         return "<ul>" + "".join(f"<li>{_render_value(item)}</li>" for item in value) + "</ul>"
-    return _text(value)
+    return _result_value(value)
+
+
+def _result_value(value) -> str:
+    if isinstance(value, str) and value:
+        return _text(value)
+    return escape(json.dumps(value, ensure_ascii=False))
 
 
 def _revision(node: dict) -> str:
@@ -140,8 +147,13 @@ def render_report(
         exp = explanations.get(selected_id)
         data = _display_data(result)
         selection = exp.get("selection") if isinstance(exp, dict) else None
+        value_available = "value" in data
         if isinstance(selection, dict) and "value" in selection:
             data["value"] = selection["value"]
+            value_available = selection.get("value_available", selection["value"] is not None)
+        displayed_value = _result_value(data.get("value")) if value_available else "Not recorded"
+        if not value_available:
+            data["value"] = "Not recorded"
         execution = exp.get("execution") if isinstance(exp, dict) else None
         run_state = execution.get("state") if isinstance(execution, dict) else None
         run_state = run_state or data.get("capture_mode") or data.get("execution_status") or data.get("status")
@@ -149,7 +161,7 @@ def render_report(
         name = result.get("natural_key") or selected_id
         section = [f'<article id="{_anchor(by_id[selected_id])}"><header><p class="eyebrow">{_text(_human(result.get("type", "result")))}</p>',
                    f'<h2>{_text(name)}</h2>',
-                   f'<p class="value">{_text(data.get("value"))} {_text(data.get("unit")) if data.get("unit") else ""}</p>',
+                   f'<p class="value">{displayed_value} {_text(data.get("unit")) if data.get("unit") else ""}</p>',
                    (f'<p>Scope: {_text(data.get("scope") or data.get("period"))} · '
                     f'Review: {_text(review_status)} · Run: {_text(run_state)}</p>'),
                    f'<p class="muted">Node {_text(selected_id)} · Version {_text(_revision(result))}</p></header>']

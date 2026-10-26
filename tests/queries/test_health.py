@@ -324,3 +324,55 @@ def test_missing_and_wrong_type_source_references_are_not_masked_by_valid_bytes(
     assert {"missing_reference", "reference_type_mismatch"} <= kinds
     assert report["integrity"]["status"] == "failed"
     store.close()
+
+
+def test_successful_managed_run_missing_retention_is_not_verified(tmp_path):
+    store = Store(tmp_path / "store.db")
+    run = Node(
+        project_id="p",
+        type=NodeType.RUN,
+        natural_key="incomplete",
+        data={"capture_mode": "managed", "status": "succeeded"},
+    )
+    store.upsert_node(run)
+    report = project_health(store, "p", tmp_path, [])
+    assert report["integrity"]["ok"] is False
+    missing = {
+        issue["field"]
+        for issue in report["integrity"]["graph_issues"]
+        if issue["kind"] == "missing_retained_reference" and issue["node_id"] == run.id
+    }
+    assert missing == {"bundle", "output"}
+    store.close()
+
+
+def test_malformed_run_observations_are_reported_without_crashing(tmp_path):
+    store = Store(tmp_path / "store.db")
+    artifact = Node(
+        project_id="p", type=NodeType.ARTIFACT, natural_key="result", data={"path": "result.txt"}
+    )
+    run = Node(
+        project_id="p",
+        type=NodeType.RUN,
+        natural_key="malformed",
+        data={
+            "capture_mode": "reported",
+            "status": "succeeded",
+            "capture_gaps": 4,
+            "output_file_hashes": ["not", "a", "mapping"],
+        },
+    )
+    store.upsert_node(artifact)
+    store.upsert_node(run)
+    store.upsert_edge(Edge(project_id="p", type=EdgeType.PRODUCED, src=run.id, dst=artifact.id))
+    (tmp_path / "result.txt").write_text("data")
+    report = project_health(store, "p", tmp_path, [])
+    assert report["integrity"]["status"] == "failed"
+    invalid = {
+        issue["field"]
+        for issue in report["integrity"]["graph_issues"]
+        if issue["kind"] == "invalid_run_metadata" and issue["node_id"] == run.id
+    }
+    assert {"capture_gaps", "output_file_hashes"} <= invalid
+    assert report["integrity"]["artifacts"][0]["status"] == "unobserved"
+    store.close()

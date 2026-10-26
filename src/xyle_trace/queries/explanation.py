@@ -95,6 +95,36 @@ def _positive_ancestors(graph, node_id):
     return seen
 
 
+def _bind_bundle(bundle, run, edges, original):
+    """Reject retained context inconsistent with the stored execution receipt."""
+    related = [edge for edge in edges if not edge.data.get("provisional", False)]
+    transformations = {edge.dst for edge in related if edge.type == EdgeType.GENERATED_BY}
+    inputs = {edge.dst for edge in related if edge.type == EdgeType.USED_INPUT}
+    if (transformations != {bundle["transformation_id"]}
+            or inputs != set(bundle["input"]["inputs"])):
+        raise ValueError("retained bundle differs from run relationships")
+    if any(entry["node"]["project_id"] != run.project_id
+           for entry in bundle["input"]["inputs"].values()):
+        raise ValueError("retained input belongs to another project")
+    for field in ("policy_hash", "environment"):
+        if field not in bundle or field not in run.data or bundle[field] != run.data[field]:
+            raise ValueError("retained bundle differs from run receipt")
+    request = run.data.get("execution_request")
+    if not isinstance(request, dict):
+        raise TypeError("managed execution request is unavailable")
+    if run.data.get("replay_of"):
+        if (original is None or original.type != NodeType.RUN
+                or original.data.get("capture_mode") != "managed"
+                or original.data.get("status") != "succeeded"
+                or original.data.get("bundle") != run.data.get("bundle")
+                or request.get("replay_of") != original.id):
+            raise ValueError("retained replay bundle differs from original receipt")
+    elif (request.get("transformation_id") != bundle["transformation_id"]
+            or set(request.get("input_ids") or []) != inputs
+            or (request.get("params") or {}) != bundle["input"]["params"]):
+        raise ValueError("retained bundle differs from execution request")
+
+
 def _bad_number(value):
     raise ValueError(f"nonfinite JSON value: {value}")
 
@@ -208,6 +238,7 @@ def explain_result(
     calculations = []
     bundle = None
     value = None
+    value_available = False
     state = "unrecorded"
     if run:
         mode = run.data.get("capture_mode", "reported")
@@ -223,6 +254,10 @@ def explain_result(
             else "replayed"
             if replayed
             else "executed"
+            if mode == "managed" and run.data.get("status") == "succeeded"
+            else "started"
+            if mode == "managed" and run.data.get("status") == "started"
+            else "unrecorded"
             if mode == "managed"
             else "reported"
         )
@@ -231,6 +266,12 @@ def explain_result(
                 bundle = _json_blob(root, run.data.get("bundle"))
                 try:
                     _validate_bundle(bundle)
+                    _bind_bundle(
+                        bundle, run,
+                        store.edges_from(project_id, run.id,
+                                         [EdgeType.GENERATED_BY, EdgeType.USED_INPUT]),
+                        by_id.get(run.data.get("replay_of")),
+                    )
                 except (ValueError, KeyError, TypeError) as error:
                     raise ValueError("retained bundle structure is invalid") from error
             except (OSError, ValueError, KeyError, TypeError) as error:
@@ -289,7 +330,16 @@ def explain_result(
                 node.type == NodeType.RUN or any(item.id == run.id for item in direct)
             ):
                 try:
-                    value = _select(_json_blob(root, run.data["output"]), selector)
+                    recorded = _json_blob(root, run.data["output"])
+                    if node.type == NodeType.ARTIFACT and any(
+                        node.data.get(field) != run.data["output"].get(field)
+                        for field in ("path", "content_hash")
+                    ):
+                        gaps.append({"kind": "output_reference_mismatch",
+                                     "message": "Selected artifact differs from retained run output"})
+                    else:
+                        value = _select(recorded, selector)
+                        value_available = True
                 except (OSError, ValueError, KeyError, TypeError) as error:
                     if isinstance(error, ExplanationError):
                         raise
@@ -345,6 +395,7 @@ def explain_result(
                         recorded = json.loads(payload, parse_constant=_bad_number)
                         revision(recorded)
                         value = _select(recorded, selector)
+                        value_available = True
                 except (OSError, ValueError, TypeError) as error:
                     if isinstance(error, ExplanationError):
                         raise
@@ -375,11 +426,17 @@ def explain_result(
         for gap in run.data.get("capture_gaps", []):
             gaps.append({"kind": "capture_gap", "message": gap})
     if (
-        value is None
+        not value_available
         and selector is None
         and (run is None or run.data.get("capture_mode") != "managed")
     ):
-        value = node.data.get("value", node.data.get("metadata", {}).get("value"))
+        metadata = node.data.get("metadata")
+        if "value" in node.data:
+            value = node.data["value"]
+            value_available = True
+        elif isinstance(metadata, dict) and "value" in metadata:
+            value = metadata["value"]
+            value_available = True
     context_nodes = historical["nodes"] if historical else graph["nodes"]
     evidence = []
     assumptions = []
@@ -412,6 +469,7 @@ def explain_result(
             "selector": selector,
             "historical": bundle is not None,
             "value": value,
+            "value_available": value_available,
         },
         "calculations": calculations,
         "inputs": inputs,

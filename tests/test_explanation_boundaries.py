@@ -62,7 +62,7 @@ def managed(project, *, key="first", inputs=None, value=7):
     return dataset, run, artifact
 
 
-def reported(project):
+def reported(project, value=23):
     rows = project.register({"type": "dataset", "natural_key": "reported-inputs"})
     transform = project.register(
         {
@@ -72,7 +72,7 @@ def reported(project):
         }
     )
     output = project.root / "reported.json"
-    output.write_text(json.dumps({"total": 23}))
+    output.write_text(json.dumps({"total": value}))
     artifact = project.register(
         {
             "type": "artifact",
@@ -175,6 +175,18 @@ def test_failed_managed_run_does_not_claim_successful_execution(project):
     assert result["execution"]["state"] not in {"executed", "replayed"}
 
 
+def test_interrupted_managed_run_is_started_rather_than_executed(project):
+    _, run, _ = managed(project)
+    node = project.store.get_node("p", run["id"])
+    node.data.update(status="started")
+    node.data.pop("output")
+    project.store.upsert_node(node)
+    result = explanation(project, node)
+    assert result["execution"]["state"] == "started"
+    assert result["execution"]["reproducible"] is False
+    assert result["selection"]["value_available"] is False
+
+
 @pytest.mark.parametrize(
     "pointer,expected",
     [
@@ -187,6 +199,38 @@ def test_pointer_escapes_and_false_values_remain_distinct(project, pointer, expe
     _, _, artifact = managed(project)
     result = explanation(project, artifact, selector=pointer)
     assert result["selection"]["value"] is expected
+    assert result["selection"]["value_available"] is True
+
+
+def test_unavailable_output_is_distinct_from_a_recorded_json_null(project):
+    _, run, artifact = managed(project)
+    (project.root / run["data"]["output"]["path"]).unlink()
+    result = explanation(project, artifact, selector="/a~1b/~0key/0")
+    assert result["selection"]["value"] is None
+    assert result["selection"]["value_available"] is False
+    assert any(gap["kind"] == "output_unavailable" for gap in result["gaps"])
+
+
+def test_hash_checked_reported_null_is_available(project):
+    _, artifact = reported(project, value=None)
+    selection = explanation(project, artifact, selector="/total")["selection"]
+    assert selection["value"] is None
+    assert selection["value_available"] is True
+
+
+@pytest.mark.parametrize("metadata", [False, True])
+def test_explicit_metadata_null_has_a_value_but_absent_metadata_does_not(project, metadata):
+    data = {"metadata": {"value": None}} if metadata else {"value": None}
+    recorded = Node(
+        project_id="p", type=NodeType.INDICATOR, natural_key="recorded-null",
+        data={"definition": "Synthetic null result", **data},
+    )
+    project.store.upsert_node(recorded)
+    missing = project.register(
+        {"type": "indicator", "natural_key": "missing-value", "data": {"definition": "Missing"}}
+    ).node.node
+    assert explanation(project, recorded)["selection"]["value_available"] is True
+    assert explanation(project, missing)["selection"]["value_available"] is False
 
 
 @pytest.mark.parametrize("pointer", ["/absent", "/a~1b/~0key/9", "/a~1b/~0key/-1"])
@@ -234,6 +278,69 @@ def test_schema_corrupt_retained_bundle_is_a_gap_not_an_untyped_crash(project, b
     assert result["selection"]["historical"] is False
     assert result["selection"]["value"] is None
     assert any(gap["kind"] == "retained_inputs_unavailable" for gap in result["gaps"])
+
+
+@pytest.mark.parametrize("replay", [False, True])
+def test_valid_hash_bundle_from_a_different_run_cannot_explain_selected_output(project, replay):
+    _, first, artifact = managed(project)
+    if replay:
+        first = execute(project, key="replay", replay_of=first["id"])
+        artifact = next(
+            node for node in project.store.nodes_of_type("p", NodeType.ARTIFACT)
+            if first["id"] in node.natural_key
+        )
+    _, other, _ = managed(project, key="other", value=99)
+    selected_run = project.store.get_node("p", first["id"])
+    selected_run.data["bundle"] = other["data"]["bundle"]
+    project.store.upsert_node(selected_run)
+    result = explanation(project, artifact, selector="/total")
+    assert result["selection"]["historical"] is False
+    assert result["selection"]["value_available"] is False
+    assert any(gap["kind"] == "retained_inputs_unavailable" for gap in result["gaps"])
+    assert not result["inputs"] or all(i["basis"] == "current_context" for i in result["inputs"])
+
+
+def test_managed_run_cannot_substitute_its_output_for_another_linked_artifact(project):
+    _, run, _ = managed(project)
+    other = project.register(
+        {"type": "artifact", "natural_key": "other-output", "data": {"path": "different.json"}}
+    ).node.node
+    project.link({"kind": "edge", "type": "produced", "src": run["id"], "dst": other.id,
+                  "data": {"provisional": False}})
+    result = explanation(project, other, selector="/total")
+    assert result["selection"]["value_available"] is False
+    assert result["selection"]["value"] is None
+    assert any(gap["kind"] == "output_reference_mismatch" for gap in result["gaps"])
+
+
+@pytest.mark.parametrize("field", ["params", "policy_hash", "environment", "project_id"])
+def test_retained_bundle_context_must_agree_with_run_receipt(project, field):
+    _, run, artifact = managed(project)
+    bundle = json.loads((project.root / run["data"]["bundle"]["path"]).read_bytes())
+    if field == "params":
+        bundle["input"]["params"] = {"factor": 123}
+    elif field == "project_id":
+        next(iter(bundle["input"]["inputs"].values()))["node"]["project_id"] = "different"
+    else:
+        bundle[field] = "different"
+    replace_bundle(project, run, bundle)
+    result = explanation(project, artifact)
+    assert result["selection"]["historical"] is False
+    assert result["selection"]["value_available"] is False
+    assert any(gap["kind"] == "retained_inputs_unavailable" for gap in result["gaps"])
+
+
+def test_replay_bundle_must_be_original_even_when_relationships_match(project):
+    _, original, _ = managed(project)
+    replay = execute(project, key="replay", replay_of=original["id"])
+    artifact = next(node for node in project.store.nodes_of_type("p", NodeType.ARTIFACT)
+                    if replay["id"] in node.natural_key)
+    bundle = json.loads((project.root / replay["data"]["bundle"]["path"]).read_bytes())
+    bundle["input"]["params"] = {"changed": True}
+    replace_bundle(project, replay, bundle)
+    result = explanation(project, artifact)
+    assert result["selection"]["historical"] is False
+    assert result["selection"]["value_available"] is False
 
 
 def test_corrupt_retained_bytes_never_substitute_current_result_metadata(project):

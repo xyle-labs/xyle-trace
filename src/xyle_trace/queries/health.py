@@ -1,6 +1,7 @@
 """Read-only project health: policy, retained integrity, freshness and review gaps."""
 
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -17,6 +18,17 @@ from xyle_trace.core.handoff import (
 from xyle_trace.models.entities import EdgeType, NodeType
 from xyle_trace.models.provenance import EvidenceData, SnapshotData
 from xyle_trace.store.sqlite_store import Store
+
+
+def _file_hashes_valid(value):
+    return isinstance(value, dict) and all(
+        item is None or (isinstance(item, str) and re.fullmatch(r"sha256:[0-9a-f]{64}", item))
+        for item in value.values()
+    )
+
+
+def _capture_gaps_valid(value):
+    return isinstance(value, list) and all(isinstance(item, str) for item in value)
 
 
 def _graph_issues(store, project_id, nodes, edges):
@@ -40,6 +52,29 @@ def _graph_issues(store, project_id, nodes, edges):
         NodeType.EVIDENCE_LINK: ("snapshot_id", NodeType.SOURCE_SNAPSHOT, EvidenceData),
     }
     for node in nodes:
+        if node.type == NodeType.RUN:
+            for field, valid in (
+                ("capture_gaps", _capture_gaps_valid),
+                ("input_file_hashes", _file_hashes_valid),
+                ("output_file_hashes", _file_hashes_valid),
+            ):
+                if field in node.data and not valid(node.data[field]):
+                    issues.append(
+                        {"kind": "invalid_run_metadata", "node_id": node.id, "field": field}
+                    )
+            if node.data.get("capture_mode") == "managed":
+                required = ["bundle"]
+                if node.data.get("status") == "succeeded":
+                    required.append("output")
+                for field in required:
+                    if node.data.get(field) is None:
+                        issues.append(
+                            {
+                                "kind": "missing_retained_reference",
+                                "node_id": node.id,
+                                "field": field,
+                            }
+                        )
         if node.type not in references:
             continue
         field, expected, model = references[node.type]
@@ -218,7 +253,12 @@ def project_health(
             counts[status] += 1
         counts["replayed"] += bool(run.data.get("replay_of"))
         counts["replay_verified"] += run.data.get("replay_verified") is True
-        missing = list(run.data.get("capture_gaps") or [])
+        captured_gaps = run.data.get("capture_gaps", [])
+        missing = (
+            list(captured_gaps)
+            if _capture_gaps_valid(captured_gaps)
+            else ["invalid_run_metadata:capture_gaps"]
+        )
         if mode != "managed" and "execution_not_observed" not in missing:
             missing.append("execution_not_observed")
         if missing:
@@ -257,7 +297,8 @@ def project_health(
         ]
         candidates.sort(key=_run_time, reverse=True)
         latest = candidates[0] if candidates else None
-        expected = latest.data.get("output_file_hashes", {}).get(artifact.id) if latest else None
+        file_hashes = latest.data.get("output_file_hashes", {}) if latest else {}
+        expected = file_hashes.get(artifact.id) if _file_hashes_valid(file_hashes) else None
         if (
             expected is None
             and latest

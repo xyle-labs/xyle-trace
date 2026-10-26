@@ -125,3 +125,23 @@ def test_report_prints_supplied_original_revision_after_uri_projection(graph):
     assert f"Version {original_revision}" in report
     assert "https://example.test/source" in report
     assert "reader:password" not in report and "token=private" not in report
+
+
+@pytest.mark.parametrize("value,display", [(None, "null"), ({}, "{}"), ([], "[]"),
+                                          (False, "false"), (0, "0"), ("", '&quot;&quot;')])
+def test_report_preserves_recorded_json_values_instead_of_marking_them_missing(graph, value, display):
+    report = render_report(
+        graph, [], selected_ids=["result"],
+        explanations={"result": {"selection": {"value": value, "value_available": True}}},
+    )
+    assert f'<p class="value">{display} %</p>' in report
+
+
+def test_report_marks_unavailable_value_without_using_metadata_fallback(graph):
+    report = render_report(
+        graph, [], selected_ids=["result"],
+        explanations={"result": {"selection": {"value": None, "value_available": False}}},
+    )
+    assert '<p class="value">Not recorded %</p>' in report
+    assert '<p class="value">42 %</p>' not in report
+    assert '<dt>Value</dt><dd>null</dd>' not in report

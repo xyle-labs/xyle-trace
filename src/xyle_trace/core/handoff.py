@@ -14,6 +14,7 @@ import stat
 import struct
 import tempfile
 import zipfile
+import zlib
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -118,22 +119,36 @@ def _check_directory(stream):
     if end[1] or end[2] or end[3] != end[4] or offset + 22 + end[7] != len(tail):
         raise ValueError("unsupported ZIP end record")
     count, directory_size = end[4], end[5]
-    if count == 65535 or directory_size == 0xFFFFFFFF or end[6] == 0xFFFFFFFF:
-        end_position = size - len(tail) + offset
-        if end_position < 20:
-            raise ValueError("invalid ZIP64 locator")
+    end_position = size - len(tail) + offset
+    locator = None
+    if end_position >= 20:
         stream.seek(end_position - 20)
-        locator = struct.unpack("<4sLQL", stream.read(20))
-        if locator[0] != b"PK\x06\x07" or locator[1] or locator[3] != 1:
+        candidate = struct.unpack("<4sLQL", stream.read(20))
+        if candidate[0] == b"PK\x06\x07":
+            locator = candidate
+    # zipfile honors a ZIP64 locator even without saturated classic fields.
+    # Validate exactly the contiguous record layout accepted here before allowing
+    # the standard parser to allocate its central-directory buffer.
+    if locator is not None:
+        if locator[1] or locator[3] != 1 or locator[2] + 56 != end_position - 20:
             raise ValueError("unsupported ZIP64 locator")
         stream.seek(locator[2])
         record = stream.read(56)
         if len(record) != 56:
             raise ValueError("invalid ZIP64 end record")
         large = struct.unpack("<4sQ2H2L4Q", record)
-        if large[0] != b"PK\x06\x06" or large[1] != 44 or large[4] or large[5]:
+        if (
+            large[0] != b"PK\x06\x06"
+            or large[1] != 44
+            or large[4]
+            or large[5]
+            or large[6] != large[7]
+            or large[9] + large[8] != locator[2]
+        ):
             raise ValueError("unsupported ZIP64 end record")
         count, directory_size = large[7], large[8]
+    elif count == 65535 or directory_size == 0xFFFFFFFF or end[6] == 0xFFFFFFFF:
+        raise ValueError("missing ZIP64 locator")
     if count > MAX_MEMBERS or directory_size > MAX_MEMBERS * 1024:
         raise ValueError("archive central directory exceeds limit")
     stream.seek(0)
@@ -441,7 +456,14 @@ def import_project(
         with _regular_stream(bundle_path, max_total_bytes + MAX_MEMBERS * 1024) as stream:
             _check_directory(stream)
             return _import_archive(stream, destination, max_blob_bytes, max_total_bytes)
-    except (KeyError, TypeError, zipfile.BadZipFile, RecursionError, struct.error) as error:
+    except (
+        KeyError,
+        TypeError,
+        zipfile.BadZipFile,
+        RecursionError,
+        struct.error,
+        zlib.error,
+    ) as error:
         raise ValueError("invalid handoff archive") from error
 
 

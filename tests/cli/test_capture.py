@@ -276,3 +276,19 @@ def test_new_rejects_project_ids_discovery_cannot_use(tmp_path, capsys, project)
     assert main(["new", "--project", project, "--path", str(root)]) == 2
     assert "project" in capsys.readouterr().out
     assert not root.exists()
+
+
+def test_new_ships_typed_cli_capture_fallback_to_both_hosts(tmp_path):
+    root = tmp_path / "project"
+    assert main(["new", "--project", "p", "--path", str(root), "--host", "both"]) == 0
+    for guidance in (root / "CLAUDE.md", root / "AGENTS.md"):
+        text = guidance.read_text()
+        assert "xyle-trace record" in text
+        assert "reported" in text
+    for skill in (root / ".claude/skills/lineage/SKILL.md", root / ".agents/skills/lineage/SKILL.md"):
+        text = skill.read_text()
+        assert "xyle-trace record" in text
+        assert "--request source.json" in text
+        assert "--request -" in text
+        assert "without the MCP" in text
+        assert "does not execute" in text
