@@ -6,15 +6,16 @@ import shutil
 import sqlite3
 import sys
 import tempfile
+from contextlib import closing
 
 from xyle_trace.contracts.loader import ContractError, load_contracts
 from xyle_trace.contracts.validator import blocked_runs, validate_contracts
-from xyle_trace.exporters.html_graph import render_html
 from xyle_trace.exporters.json_graph import export_graph
 from xyle_trace.models.entities import Node, NodeType
 from xyle_trace.queries.ledger import standing_assumptions
-from xyle_trace.queries.traversal import _dependencies, explain
-from xyle_trace.service import Service
+from xyle_trace.queries.traversal import explain as explain_graph
+from xyle_trace.queries.traversal import impact
+from xyle_trace.service import Service, ServiceError
 from xyle_trace.store.sqlite_store import SchemaVersionError, Store
 
 SKILLS = ("lineage", "source-discovery", "extraction", "reproducible-runs", "claims")
@@ -59,6 +60,10 @@ code edits.
 - MCP run capture is `reported` and never reproducible. Use `xyle-trace-run`
   for retained-input execution and verified replay when a program fits its
   standard-library Python/JSON contract.
+- If MCP is unavailable, the installed `xyle-trace record` command accepts the
+  same typed capture requests from a JSON file or standard input. Read the
+  lineage skill's CLI fallback instructions; run capture remains `reported`
+  and does not execute the calculation.
 """
 
 
@@ -115,13 +120,15 @@ def _install_host(host: str, root: pathlib.Path, project: str, skills: pathlib.P
         (root / ".codex").mkdir()
         (root / ".codex" / "config.toml").write_text(
             f"[mcp_servers.xyle_trace]\n"
-            f"command = {json.dumps(command)}\n"
-            f"args = {json.dumps(arguments)}\n"
+            f"command = {json.dumps(command, ensure_ascii=False)}\n"
+            f"args = {json.dumps(arguments, ensure_ascii=False)}\n"
         )
         (root / "AGENTS.md").write_text(GUIDANCE_TEMPLATE.format(project=project))
 
 
-def _new(args) -> int:
+def _new(args, *, announce: bool = True) -> int:
+    if not args.project or args.project != args.project.strip():
+        raise ValueError("project must be nonempty with no surrounding whitespace")
     root = pathlib.Path(args.path).resolve()
     if root.exists() and any(root.iterdir()):
         print(f"{root} is not empty; choose an empty or new directory")
@@ -137,6 +144,18 @@ def _new(args) -> int:
     finally:
         store.close()
 
+    (root / ".lineage" / "config.json").write_text(
+        json.dumps(
+            {
+                "project": args.project,
+                "db": ".lineage/graph.db",
+                "root": ".",
+                "contracts": "contracts.yaml",
+            },
+            indent=2,
+        )
+        + "\n"
+    )
     (root / "contracts.yaml").write_text(CONTRACTS_TEMPLATE)
     (root / ".gitignore").write_text(
         ".lineage/\n.env\n.env.*\n!.env.example\n.venv/\n__pycache__/\n"
@@ -144,9 +163,43 @@ def _new(args) -> int:
     for host in ("claude", "codex") if args.host == "both" else (args.host,):
         _install_host(host, root, args.project, skills)
 
-    print(f"created project {args.project} at {root}")
-    print(f"next: cd {root} && edit contracts.yaml, then start your agent there")
+    if announce:
+        print(f"created project {args.project} at {root}")
+        print(f"next: cd {root} && edit contracts.yaml, then start your agent there")
     return 0
+
+
+def _record(args) -> int:
+    """Capture observations using the same typed boundary as the optional MCP adapter."""
+    try:
+        text = sys.stdin.read() if args.request == "-" else pathlib.Path(args.request).read_text()
+        request = json.loads(text)
+    except (OSError, ValueError) as error:
+        print(
+            json.dumps({"error": {"code": "invalid_request", "message": str(error), "details": {}}})
+        )
+        return 2
+    try:
+        with closing(Store(pathlib.Path(args.db), create=False)) as store:
+            service = Service(
+                store,
+                args.project,
+                root=pathlib.Path(args.root),
+                contracts_path=pathlib.Path(args.contracts),
+            )
+            result = getattr(service, args.operation)(request)
+        print(json.dumps(result.model_dump(mode="json")))
+        return 0
+    except ServiceError as error:
+        print(json.dumps({"error": error.error.model_dump(mode="json")}))
+        return 2
+    except (OSError, ValueError, sqlite3.Error) as error:
+        print(
+            json.dumps(
+                {"error": {"code": "invalid_reference", "message": str(error), "details": {}}}
+            )
+        )
+        return 2
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -158,17 +211,53 @@ def _parser() -> argparse.ArgumentParser:
     create.add_argument("--path", required=True)
     create.add_argument("--host", choices=("claude", "codex", "both"), default="claude")
 
-    for name in ("init", "validate", "export", "explain", "show", "ledger"):
+    demo = subparsers.add_parser("demo", help="create and run a synthetic retained-input example")
+    demo.add_argument("--path", required=True)
+    demo.add_argument("--project", default="demo")
+    demo.add_argument("--host", choices=("claude", "codex", "both"), default="claude")
+
+    record = subparsers.add_parser("record", help="capture typed provenance without an MCP host")
+    record.add_argument(
+        "--operation",
+        required=True,
+        choices=("register", "snapshot", "record_run", "link", "decide"),
+    )
+    record.add_argument("--request", required=True, help="JSON request file, or - for stdin")
+    for name in ("project", "db", "root", "contracts"):
+        record.add_argument(f"--{name}", required=True)
+
+    restore = subparsers.add_parser("restore", help="verify a handoff into a new project directory")
+    restore.add_argument("--bundle", required=True)
+    restore.add_argument("--path", required=True)
+
+    for name in ("init", "validate", "export", "explain", "impact", "doctor", "show", "ledger"):
         sub = subparsers.add_parser(name)
         sub.add_argument("--project", required=True)
         sub.add_argument("--db", required=True)
-        if name == "validate":
+        if name in {"validate", "doctor"}:
             sub.add_argument("--contracts", required=True)
+        if name == "doctor":
+            sub.add_argument("--root", required=True)
+            sub.add_argument("--receipt", action="append", default=[])
         if name == "export":
-            sub.add_argument("--out", required=True)
-            sub.add_argument("--format", choices=("json", "html"), default="json")
-        if name == "explain":
+            sub.add_argument("--out")
+            sub.add_argument(
+                "--format", choices=("json", "html", "report", "bundle"), default="json"
+            )
+            sub.add_argument("--root")
+            sub.add_argument("--contracts")
+            sub.add_argument("--node", action="append", default=[])
+            sub.add_argument("--title", default="Provenance report")
+            sub.add_argument("--preview", action="store_true")
+            sub.add_argument("--include-content", action="store_true")
+        if name in {"explain", "impact"}:
             sub.add_argument("--node", required=True)
+            sub.add_argument("--root")
+        if name == "explain":
+            sub.add_argument("--run")
+            sub.add_argument("--revision")
+            sub.add_argument("--selector")
+            sub.add_argument("--include-code", action="store_true")
         if name == "show":
             # content mode reads through the public Service surface, which needs a
             # full project root (captured bytes live at <root>/.lineage/snapshots/)
@@ -183,6 +272,28 @@ def _parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    if args.command == "restore":
+        from xyle_trace.core.handoff import import_project
+
+        try:
+            print(json.dumps(import_project(pathlib.Path(args.bundle), pathlib.Path(args.path))))
+            return 0
+        except (OSError, ValueError, sqlite3.Error) as error:
+            print(json.dumps({"error": str(error)}))
+            return 2
+    if args.command == "record":
+        return _record(args)
+    if args.command == "demo":
+        from xyle_trace.demo import run_demo
+
+        try:
+            if _new(args, announce=False):
+                return 2
+            print(json.dumps(run_demo(pathlib.Path(args.path).resolve(), args.project), indent=2))
+            return 0
+        except (OSError, ValueError, sqlite3.Error) as error:
+            print(json.dumps({"error": str(error)}))
+            return 2
     if args.command == "new":
         try:
             return _new(args)
@@ -234,9 +345,7 @@ def _dispatch(args, store: Store) -> int:
         # <root>/.lineage/snapshots/, so the snapshot directory is a sibling of
         # the database file rather than a separately configured path.
         snapshot_root = pathlib.Path(args.db).parent / "snapshots"
-        violations = validate_contracts(
-            store, args.project, contracts, snapshot_root=snapshot_root
-        )
+        violations = validate_contracts(store, args.project, contracts, snapshot_root=snapshot_root)
         if not violations:
             print("no violations")
             return 0
@@ -252,6 +361,46 @@ def _dispatch(args, store: Store) -> int:
         return 1 if any(violation.severity == "block" for violation in violations) else 0
 
     if args.command == "export":
+        if args.format in {"report", "bundle", "html"}:
+            root = (
+                pathlib.Path(args.root).resolve()
+                if args.root
+                else (
+                    store.path.parent.parent
+                    if store.path.parent.name == ".lineage"
+                    else store.path.parent
+                ).resolve()
+            )
+            if args.preview and args.format != "report":
+                raise ValueError("preview is available for selected reports")
+            if not args.preview and not args.out:
+                raise ValueError("export requires --out unless previewing a report")
+            path = pathlib.Path(args.out) if args.out else None
+            destination = (
+                path.relative_to(root).as_posix()
+                if path and path.is_absolute()
+                else str(path)
+                if path
+                else None
+            )
+            policy = pathlib.Path(args.contracts) if args.contracts else root / "contracts.yaml"
+            options = {"contracts_path": policy} if policy.is_file() else {"contracts": []}
+            service = Service(store, args.project, root=root, **options)
+            result = service.export(
+                {
+                    "format": args.format,
+                    "destination": None if args.preview else destination,
+                    "selected_ids": args.node,
+                    "title": args.title,
+                    "include_content": args.include_content,
+                }
+            )
+            print(json.dumps(result.model_dump(mode="json"), indent=2))
+            return 0
+        if not args.out:
+            raise ValueError("export requires --out")
+        if args.preview or args.include_content:
+            raise ValueError("preview applies to reports; include-content applies to bundles")
         destination = pathlib.Path(args.out).resolve()
         database = store.path.resolve()
         protected = [
@@ -266,17 +415,7 @@ def _dispatch(args, store: Store) -> int:
             raise ValueError("export cannot replace the database or its sidecars")
         with store.transaction(write=False):
             graph = export_graph(store, args.project)
-            data = (
-                render_html(
-                    graph,
-                    [
-                        {"consumer": consumer, "dependency": dependency}
-                        for consumer, dependency in _dependencies(store, args.project)
-                    ],
-                )
-                if args.format == "html"
-                else json.dumps(graph, indent=2)
-            )
+            data = json.dumps(graph, indent=2)
         temporary = None
         try:
             with tempfile.NamedTemporaryFile(
@@ -293,11 +432,73 @@ def _dispatch(args, store: Store) -> int:
         print(f"wrote {args.out}")
         return 0
 
-    if args.command == "explain":
+    if args.command == "doctor":
+        service = Service(
+            store,
+            args.project,
+            root=pathlib.Path(args.root),
+            contracts_path=pathlib.Path(args.contracts),
+        )
+        health = service.validate({"health": True, "receipt_paths": args.receipt}).health
+        print(json.dumps(health, indent=2))
+        return 0 if health["policy"]["valid"] and health["integrity"]["ok"] else 1
+
+    if args.command in {"explain", "impact"}:
         if store.get_node(args.project, args.node) is None:
             print(f"node {args.node} not found in project {args.project}")
             return 1
-        print(json.dumps(explain(store, args.project, args.node), indent=2))
+        root = (
+            pathlib.Path(args.root).resolve()
+            if args.root
+            else (
+                store.path.parent.parent
+                if store.path.parent.name == ".lineage"
+                else store.path.parent
+            ).resolve()
+        )
+        if store.get_node(args.project, project.id) is None:
+            # Early stores can have lineage without a project anchor. Reading
+            # them must not implicitly migrate the graph.
+            if args.command == "impact":
+                print(json.dumps(impact(store, args.project, args.node), indent=2))
+                return 0
+            from xyle_trace.queries.explanation import explain_result
+
+            with store.transaction(write=False):
+                payload = explain_graph(store, args.project, args.node)
+                details, historical = explain_result(
+                    store,
+                    args.project,
+                    store.get_node(args.project, args.node),
+                    root=root,
+                    run_id=args.run,
+                    expected_revision=args.revision,
+                    selector=args.selector,
+                    include_code=args.include_code,
+                )
+                if historical is not None:
+                    payload.update(historical)
+                payload["explanation"] = details
+            print(json.dumps(payload, indent=2))
+            return 0
+        service = Service(store, args.project, root=root, contracts=[])
+        request = {"mode": args.command, "node_id": args.node}
+        if args.command == "explain":
+            request.update(
+                run_id=args.run,
+                revision=args.revision,
+                selector=args.selector,
+                include_code=args.include_code,
+            )
+        result = service.query(request)
+        payload = result.model_dump(mode="json")
+        if args.command == "explain":
+            payload.update(
+                node=args.node,
+                sources=result.source_ids,
+                upstream=[state.node.id for state in result.nodes if state.node.id != args.node],
+            )
+        print(json.dumps(payload, indent=2))
         return 0
 
     if args.command == "ledger":

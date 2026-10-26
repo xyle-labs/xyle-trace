@@ -13,12 +13,14 @@ import platform
 import subprocess
 import sys
 import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
 
 from xyle_trace.contracts.validator import run_guarded
+from xyle_trace.core.handoff import read_project_file
 from xyle_trace.core.hashing import hash_bytes, hash_file
 from xyle_trace.core.ids import make_id
-from xyle_trace.core.revisions import canonical_json
+from xyle_trace.core.revisions import canonical_json, revision
 from xyle_trace.core.snapshots import SnapshotCapture, read_snapshot
 from xyle_trace.models.entities import Edge, EdgeType, Node, NodeType
 from xyle_trace.service import Service, ServiceError
@@ -51,6 +53,164 @@ def _retain(capture, value):
     return {"path": blob.path, "content_hash": blob.content_hash}
 
 
+def _working_path(service, out, *, script=None, input_ids=()):
+    """Validate a portable, project-relative working path without creating it."""
+    if (
+        not isinstance(out, str)
+        or not out
+        or "\\" in out
+        or Path(out).is_absolute()
+        or any(part in {"", ".", ".."} for part in out.split("/"))
+        or (len(out) >= 2 and out[0].isalpha() and out[1] == ":")
+    ):
+        raise ValueError("working output requires a project-relative path without traversal")
+    protected_names = {
+        ".lineage",
+        ".git",
+        ".codex",
+        ".agents",
+        ".claude",
+        ".aws",
+        ".ssh",
+        ".config",
+        ".kube",
+        ".gnupg",
+        ".venv",
+        ".netrc",
+        ".npmrc",
+        ".pypirc",
+        ".mcp.json",
+        "agents.md",
+        "claude.md",
+    }
+    if any(
+        part.casefold() in protected_names
+        or part.casefold() == ".env"
+        or part.casefold().startswith(".env.")
+        for part in Path(out).parts
+    ):
+        raise ValueError("working output path is protected")
+    current = service.root
+    for part in Path(out).parts:
+        current /= part
+        if current.is_symlink():
+            raise ValueError("working output paths must not be symlinks")
+    protected = [service.store.path, service.contracts_path]
+    protected += [Path(str(service.store.path) + suffix) for suffix in ("-wal", "-shm", "-journal")]
+    references = [script]
+    for node in service.store.all_nodes(service.project_id):
+        if node.id in input_ids:
+            references.append(node.data.get("path"))
+        if node.type == NodeType.SOURCE:
+            uri = node.data.get("uri")
+            if isinstance(uri, str) and "://" not in uri:
+                references.append(uri)
+        if node.type == NodeType.SOURCE_SNAPSHOT:
+            retrieval = node.data.get("retrieval", {})
+            if isinstance(retrieval, dict) and retrieval.get("kind") == "local":
+                references.append(retrieval.get("path"))
+        if node.type == NodeType.TRANSFORMATION:
+            references.append(node.data.get("code_reference"))
+        if node.type == NodeType.RUN:
+            recorded = node.data.get("execution_request")
+            if isinstance(recorded, dict):
+                references.append(recorded.get("script"))
+    protected += [service.root / value for value in references if isinstance(value, str) and value]
+    if any(
+        path is not None
+        and (
+            current.resolve() == path.resolve()
+            or (current.exists() and path.exists() and current.samefile(path))
+        )
+        for path in protected
+    ):
+        raise ValueError("working output overlaps an input, source, script, policy or database")
+    if current.exists() and (not current.is_file() or current.stat().st_nlink != 1):
+        raise ValueError("working output must be a regular file without hard links")
+    return current
+
+
+def _working_state(service, out, max_bytes, **paths):
+    path = _working_path(service, out, **paths)
+    alias_id = make_id(service.project_id, "artifact", f"working-output:{out}")
+    alias = service.store.get_node(service.project_id, alias_id)
+    try:
+        observed = hash_bytes(read_project_file(service.root, out, max_bytes=max_bytes))
+    except FileNotFoundError:
+        observed = None
+    if alias is None and observed is not None:
+        raise ServiceError("conflict", "working output already exists without a runner receipt")
+    if alias is not None and (
+        alias.data.get("path") != out
+        or observed is None
+        or alias.data.get("content_hash") != observed
+    ):
+        raise ServiceError("conflict", "working output is missing or differs from its receipt")
+    return path, {"revision": revision(alias.data) if alias else None, "content_hash": observed}
+
+
+def _check_working(service, out, expected, max_bytes, **paths):
+    path, current = _working_state(service, out, max_bytes, **paths)
+    if current != expected:
+        raise ServiceError("conflict", "working output changed during execution")
+    return path
+
+
+def _publish_working(service, run, out, expected, payload, max_bytes, **paths):
+    path = _check_working(service, out, expected, max_bytes, **paths)
+    temporary = None
+    created = []
+    parent = path.parent
+    while not parent.exists():
+        created.append(parent)
+        parent = parent.parent
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            dir=path.parent, prefix=".xyle-output-", delete=False
+        ) as stream:
+            temporary = Path(stream.name)
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        # The caller holds a write transaction: recheck the alias revision and
+        # previous bytes immediately before replacing the working directory entry.
+        _check_working(service, out, expected, max_bytes, **paths)
+        alias = service.store.upsert_node(
+            Node(
+                project_id=service.project_id,
+                type=NodeType.ARTIFACT,
+                natural_key=f"working-output:{out}",
+                data={
+                    "path": out,
+                    "content_hash": hash_bytes(payload),
+                    "description": "Working JSON output",
+                },
+            )
+        )
+        service.store.upsert_edge(
+            Edge(
+                project_id=service.project_id,
+                type=EdgeType.PRODUCED,
+                src=run.id,
+                dst=alias.id,
+                data={"provisional": False},
+            )
+        )
+        os.replace(temporary, path)
+        temporary = None
+        return {"node_id": alias.id, "path": out, "content_hash": hash_bytes(payload)}
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+        if temporary is not None or not path.exists():
+            for directory in created:
+                try:
+                    directory.rmdir()
+                except OSError:
+                    pass
+
+
 def execute(
     service: Service,
     *,
@@ -61,6 +221,7 @@ def execute(
     params: dict | None = None,
     replay_of: str | None = None,
     timeout: float = 60,
+    out: str | None = None,
 ) -> dict:
     """Execute once per key; replay uses retained code/data, never current datasets.
 
@@ -87,6 +248,8 @@ def execute(
         "replay_of": replay_of,
         "timeout": timeout,
     }
+    if out is not None:
+        request["out"] = out
     canonical_json(request)  # Reject nonfinite or non-JSON parameters before any mutation.
     existing = service.store.get_node(service.project_id, run_id)
     if existing:
@@ -99,8 +262,22 @@ def execute(
         _read_blob(root, existing.data["bundle"])
         if existing.data.get("output"):
             _read_blob(root, existing.data["output"])
+        if out is not None and existing.data.get("status") == "succeeded":
+            _, state = _working_state(service, out, capture.limits.max_bytes)
+            receipt = existing.data.get("working_output", {})
+            if receipt.get("content_hash") != state["content_hash"] or receipt.get("path") != out:
+                raise ServiceError("conflict", "working output differs from the selected run")
         return existing.model_dump(mode="json")
 
+    working_state = None
+    if out is not None:
+        _, working_state = _working_state(
+            service,
+            out,
+            capture.limits.max_bytes,
+            script=script,
+            input_ids=input_ids or (),
+        )
     states = {}
     expected_output = None
     if replay_of is not None:
@@ -152,13 +329,16 @@ def execute(
                     node_id, {NodeType.DATASET, NodeType.ARTIFACT, NodeType.SOURCE_SNAPSHOT}
                 )
                 states[node_id] = service._run_state(node)
-                details = service.query({"mode": "explain", "node_id": node_id})
+                # Execution captures its direct current input. Presentation-level
+                # explanations may inspect an ancestor's historical execution.
+                details = service.query({"mode": "upstream", "node_id": node_id})
                 frozen[node_id] = {
                     "node": node.model_dump(mode="json"),
                     "records": [
                         row.model_dump(mode="json")
-                        for row in details.records
-                        if row.record.dataset_id == node_id
+                        for row in (
+                            service._record_states(node_id) if node.type == NodeType.DATASET else []
+                        )
                     ],
                     "lineage": details.model_dump(mode="json"),
                 }
@@ -211,6 +391,15 @@ def execute(
             raise ServiceError("conflict", "execution key was reserved by another worker")
         if service.store.get_node(service.project_id, output_id):
             raise ServiceError("conflict", "execution output identity already exists")
+        if out is not None:
+            _check_working(
+                service,
+                out,
+                working_state,
+                capture.limits.max_bytes,
+                script=script,
+                input_ids=input_ids or (),
+            )
         if replay_of is None:
             contracts, current_hash = service._policy_snapshot()
             if current_hash != bundle["policy_hash"]:
@@ -272,7 +461,9 @@ def execute(
                 raise ValueError("program did not produce a regular output.json")
             if output_path.stat().st_size > capture.limits.max_bytes:
                 raise ValueError("output exceeds the capture byte limit")
-            value = json.loads(output_path.read_bytes())
+            value = json.loads(
+                read_project_file(work, "output.json", max_bytes=capture.limits.max_bytes)
+            )
             output = _retain(capture, value)
             run.data["output"] = output
             matches = expected_output is None or output["content_hash"] == expected_output
@@ -295,7 +486,6 @@ def execute(
                 replay_verified=False,
                 failure_detail="output identity changed during execution",
             )
-        service.store.upsert_node(run)
         if run.data["output"] is not None and not collision:
             output_node = service.store.upsert_node(
                 Node(
@@ -314,4 +504,29 @@ def execute(
                     data={"provisional": False},
                 )
             )
+        if out is not None:
+            if run.data["status"] == "succeeded":
+                try:
+                    with service.store.transaction():
+                        working = _publish_working(
+                            service,
+                            run,
+                            out,
+                            working_state,
+                            _read_blob(root, run.data["output"]),
+                            capture.limits.max_bytes,
+                            script=script,
+                            input_ids=input_ids or (),
+                        )
+                    run.data["working_output"] = working
+                    run.data["output_file_hashes"] = {working["node_id"]: working["content_hash"]}
+                except (OSError, ValueError) as error:
+                    run.data.update(
+                        status="failed",
+                        reproducible=False,
+                        replay_verified=False,
+                        failure_detail=f"working output publication failed: {error}",
+                    )
+            run.data["finished_at"] = datetime.now(UTC).isoformat()
+        service.store.upsert_node(run)
     return run.model_dump(mode="json")

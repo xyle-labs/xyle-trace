@@ -8,9 +8,10 @@ describes what works today. No dates are promised before the work is scoped.
 ## Product goal
 
 A new user can set up xyle-trace, complete a real analytical task in their own
-project, select a final result, and understand exactly where its inputs came
-from and how it was calculated. A short narrated walkthrough demonstrates that
-journey using a separate public-transport example.
+project, select a final result, understand its exact inputs and calculation,
+review changes, and share selected findings. The agreed scope is reliable
+capture → result explanation → review/change impact → sharing. Portable projects
+support that workflow; verified replay retains its deliberately narrow scope.
 
 ## Already available
 
@@ -20,9 +21,29 @@ correction/impact queries, retained execution/replay for compatible Python/JSON
 programs, JSON export, and a basic offline HTML inspector. Repository privacy
 hooks and CI are in place. These are the foundations for the next milestones.
 
-The current inspector is a filterable node list with JSON detail. The connected
-result-first visualization and curated report below are planned, not shipped.
-Live agent adherence to the skills also remains unverified.
+The current implementation adds an installed synthetic demo and CLI capture,
+project health inspection, retained result explanations, correction receipts,
+a connected offline explorer, selected reports with preview, and verified
+project handoffs. The interfaces and limitations are in [the workflow](docs/workflow.md).
+Interactive browser acceptance and the cross-host comparison remain outstanding.
+[Bounded host findings](docs/agent-acceptance.md) record synthetic Codex CLI capture
+and recovery; Claude, live MCP onboarding, and exact preflight ordering remain
+unverified. Implemented capabilities do not close those acceptance gates by themselves.
+
+## Capability boundaries
+
+| Include | Boundary |
+| --- | --- |
+| Reliable capture | Existing typed mutations through MCP, Python, and CLI; external computation stays reported. |
+| Exact explanations | Retained managed input versions, explicit gaps, JSON field selectors, and version pins. |
+| Versions and review | Immutable new correction receipts, current change impact, health checks, explicit claim review. |
+| Explorer and sharing | Offline result navigation and selected printable reports; field-based privacy projection and author review. |
+| Portable projects | Verified graph/policy and opted-in retained blobs; new-directory restore without executing content. |
+| Scoped verified replay | Existing standard-library Python/JSON retained execution contract. |
+
+Hosted accounts/collaboration, automatic chat collection, domain-specific
+analysis, arbitrary-environment replay, and automatic evidence-support judgments
+are outside the current scope. Individual source adapters need demonstrated use.
 
 ## 1. Onboarding and public beta
 
@@ -33,8 +54,10 @@ Live agent adherence to the skills also remains unverified.
 | Reliable first run | An installed package scaffolds discovery settings and produces one inspectable generic result; host setup needs no manual configuration repair. | [#3](https://github.com/xyle-labs/xyle-trace/issues/3) |
 | Publication readiness | Dependency updates reviewed, effective GitHub safeguards checked, release artifacts inspected, and the documented installation route verified. | [#4](https://github.com/xyle-labs/xyle-trace/issues/4) |
 
-The first-run discovery gap is concrete: `new` currently does not write
-`.lineage/config.json`. Fix it and test setup from an installed distribution.
+`new` now writes `.lineage/config.json`, validates discovery settings, and
+handles Unicode host configuration. The installed `demo` and built-wheel CI
+smoke exercise the first result without a source checkout. Live host setup
+acceptance and public package release remain separate.
 A generic small example remains in the toolkit; real domain analysis stays in
 its own repository.
 
@@ -53,7 +76,7 @@ Reuse the existing graph vocabulary and queries. Missing evidence, historical
 versions, reported execution, and verified replay must remain distinguishable.
 The report cannot imply a source supports a value merely because a path exists.
 
-## 3. Separate ÖV example and video
+## 3. Live validation and optional example/video
 
 [ÖV example and walkthrough](https://github.com/xyle-labs/xyle-trace/milestone/3)
 
@@ -79,10 +102,11 @@ been selected in this toolkit roadmap.
 
 ## Order and ownership
 
-Start with onboarding and the reusable explanation contract. Build the graph
-and report on that contract. The external repository can be set up independently;
-its results exercise the generic features and feed concrete gaps back as issues.
-Record the final video after the demonstrated workflow and explorer work end to end.
+Validate the implemented capture, explanation, health, report, and handoff flow
+from an installed package and through real agent sessions. Complete interactive
+explorer/report acceptance before treating the UI milestones as finished.
+The separate analytical repository and video are optional later work; no
+geography or domain conclusions are needed to deliver the toolkit capabilities.
 
 | xyle-trace | Separate example repository |
 | --- | --- |

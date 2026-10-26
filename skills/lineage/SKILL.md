@@ -53,10 +53,29 @@ requirements, and permitted statuses. Resolve coherent batches. A dataset filter
 only filters the returned gaps: `valid`, `blocked_patterns`, and `run_blocked`
 still reflect global policy. An empty filtered gap list is not clearance to run.
 
+## Capture when MCP is unavailable
+
+If normal authorized shell access and the installed CLI are available, use
+`xyle-trace record` for the same typed capture operations: `register`, `snapshot`,
+`record_run`, `link`, and `decide`. From the project root, for example:
+
+```bash
+xyle-trace record --project PROJECT_ID --db .lineage/graph.db \
+  --root . --contracts contracts.yaml --operation register --request source.json
+```
+
+The file contains the inner typed operation object, without the MCP `request`
+envelope. Use `--request -` to read that JSON object from standard input.
+Successful output is the operation result directly; CLI `link` has no `result`
+wrapper. Errors contain an `error` object and exit 2. Schema, revision, and policy
+checks are unchanged. CLI run capture remains `reported`, is never reproducible,
+and does not execute the calculation. Inspect `xyle-trace --help` for read-only
+explanation, content, validation, and health commands.
+
 If capture fails, retain the observed facts and report what remains unrecorded.
 Repair a malformed request or unavailable configured resource within scope, then
 retry. Do not invent successful captures, weaken contracts, or bypass blocked
-computation. If tools are unavailable, preserve a concise pending capture note
+computation. If neither capture interface is available, preserve a concise pending capture note
 in the handoff and continue only work that does not rely on a passed gate.
 
 Use `lineage.query` to explain upstream evidence or downstream impact. Impact

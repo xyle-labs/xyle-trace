@@ -115,3 +115,30 @@ def test_main_reports_an_actionable_error_and_does_not_start_a_broken_server(
     assert code == 2
     captured = capsys.readouterr()
     assert "project" in captured.err.lower()
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [("project", 42), ("project", "  p"), ("db", []), ("root", False), ("contracts", {})],
+)
+def test_discovery_rejects_invalid_setting_types(tmp_path, field, value):
+    (tmp_path / ".lineage").mkdir()
+    (tmp_path / ".lineage/config.json").write_text(json.dumps({"project": "p", field: value}))
+    with pytest.raises(DiscoveryError, match=field):
+        _resolve(_parser().parse_args([]), tmp_path, {})
+
+
+def test_discovered_relative_paths_are_anchored_to_project_directory(tmp_path):
+    (tmp_path / ".lineage").mkdir()
+    (tmp_path / ".lineage/config.json").write_text(
+        json.dumps(
+            {"project": "p", "db": ".lineage/graph.db", "root": ".", "contracts": "contracts.yaml"}
+        )
+    )
+    project, db, root, contracts = _resolve(_parser().parse_args([]), tmp_path, {})
+    assert (project, db, root, contracts) == (
+        "p",
+        tmp_path / ".lineage/graph.db",
+        tmp_path,
+        tmp_path / "contracts.yaml",
+    )

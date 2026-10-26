@@ -65,22 +65,25 @@ Run the existing checks with:
 
 ```bash
 .venv/bin/python -m pytest -q
-.venv/bin/python -m ruff check src tests
+.venv/bin/python -m ruff check src tests scripts
 PYTHONPATH=src .venv/bin/python -m xyle_trace.cli.main --help
 ```
 
-With the `mcp` extra installed, all 439 tests pass. A core-only installation
-(no `mcp` extra) passes 408 tests with 4 skipped, across the four MCP test
-modules (`test_main_discovery.py`, `test_server.py`, `test_stdio.py`,
-`test_workflow.py`); both CLI entry points still work, and `xyle-trace-mcp`
-exits with installation guidance rather than a traceback.
+Run the checks for current counts rather than relying on a historical total.
+Core-only installation is supported; MCP protocol tests skip when the extra
+is absent. CI also builds and installs a wheel outside the checkout and exercises
+the packaged demo, capture, skills, and project discovery.
 
 ## Where to read more
 
 - `README.md` — a first-time-visitor introduction: what it does, a real
   example, install, and links onward.
 - `ROADMAP.md` — the maintained milestones, acceptance criteria, and GitHub tasks.
-- `docs/result-explorer.md` — planned result inspection, visualization, and reports.
+- `docs/result-explorer.md` — implemented explorer/report baseline and remaining
+  interactive acceptance requirements.
+- `docs/workflow.md` — capture, result explanation, health, review, reports, and
+  portable project handoffs.
+- `docs/agent-acceptance.md` — bounded live-host observations and acceptance gaps.
 - `docs/oev-example-brief.md` — the brief for a separate consuming repository;
   keep its analysis, geospatial dependencies, data, and video assets outside this toolkit.
 - `docs/concept.md` — the full project concept: problem, domain model, MCP

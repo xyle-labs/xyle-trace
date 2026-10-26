@@ -20,6 +20,9 @@ def main(argv=None):
         for name in ("project", "db", "root", "contracts", "key"):
             command.add_argument(f"--{name}", required=True)
         command.add_argument("--timeout", type=float, default=60)
+        command.add_argument(
+            "--out", help="atomically deliver JSON to a project-relative working path"
+        )
         if action == "execute":
             command.add_argument("--transformation", required=True)
             command.add_argument("--input", action="append", required=True, dest="inputs")
@@ -30,6 +33,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         options = {"key": args.key, "timeout": args.timeout}
+        if args.out is not None:
+            options["out"] = args.out
         if args.action == "execute":
             params = json.loads(args.params.read_text()) if args.params else {}
             if not isinstance(params, dict):

@@ -10,13 +10,18 @@ ask a question like "where does this number come from?" and get a real answer.
 
 - Records sources, immutable snapshots, transformations, derived datasets, and
   evidence-backed claims as an agent works, through five installed skills and
-  an eight-tool MCP server — or directly through a typed Python service.
+  an eight-tool MCP server, or directly through typed Python and CLI interfaces.
 - Enforces provenance as a precondition for computation: a project's
   `contracts.yaml` blocks a run until its inputs are backed by exact evidence
   or a recorded assumption, instead of relying on the agent to remember.
 - Answers upstream, downstream, `explain`, `impact`, and `content` queries
-  against a deterministic, local-first SQLite graph. No hosted service, no
-  network dependency, and nothing about your data leaves the machine.
+  against a deterministic, local-first SQLite graph. Storage needs no hosted
+  service. An agent host receives the data returned through MCP; its privacy
+  settings and model processing remain the host's responsibility.
+- Explains selected results using retained input versions, shows pending review
+  and changed outputs, and provides a connected offline explorer and selected
+  HTML reports. Portable handoffs preserve the graph and optionally retained
+  evidence, without restoring executable working files.
 
 ## See it work
 
@@ -50,6 +55,17 @@ pip install 'xyle-trace[mcp] @ git+https://github.com/xyle-labs/xyle-trace.git@m
 xyle-trace new --project demo --path ./demo
 ```
 
+For a complete synthetic calculation, correction gate, and verified historical
+replay from the installed package:
+
+```bash
+xyle-trace demo --project demo --path ./worked-demo
+```
+
+Open `worked-demo/lineage.html` to inspect the result. The demo deliberately
+leaves a corrected input unresolved so the current-data gate remains visible.
+See [capture, review, sharing, and handoff](docs/workflow.md) for the full workflow.
+
 `main` tracks unreleased development; replace it with a reviewed commit ID
 when you need a repeatable installation.
 
@@ -66,11 +82,11 @@ are in **[docs/core-contract.md](docs/core-contract.md)**.
 
 ## Roadmap
 
-The next milestones are a reliable first-run experience, a result explorer that
-reveals sources and calculations, and a narrated walkthrough using a separate
-public-transport example project. See **[ROADMAP.md](ROADMAP.md)** for tasks,
-acceptance criteria, and GitHub issues. The example's analysis and data live in
-its own repository and use xyle-trace as a dependency.
+The product scope is reliable capture, exact result explanations, review and
+change impact, and sharing selected findings. Portable projects support this
+workflow. See **[ROADMAP.md](ROADMAP.md)** for implementation and acceptance
+boundaries. Domain analysis and specialist dependencies belong in consuming
+projects.
 
 ## Limitations
 
@@ -88,9 +104,9 @@ section](docs/core-contract.md#limitations); the short version:
   rather than passed or failed.
 - Node IDs are derived from the project ID; renaming a project re-derives
   them. Choose the project name deliberately.
-- Live agent adherence to the five skills is unverified. Protocol
-  compatibility is tested; whether a given host's agent actually follows the
-  skills is a separate, unverified question.
+- Live agent adherence depends on the host and task. Protocol compatibility
+  is tested; [bounded live-host findings](docs/agent-acceptance.md) describe
+  observed behavior and the remaining acceptance gaps.
 - The toolkit records the provenance an agent reports. It cannot detect a
   source the agent never mentioned.
 

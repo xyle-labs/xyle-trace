@@ -30,7 +30,7 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _discover(cwd: Path, env: Mapping[str, str]) -> dict[str, str | None]:
+def _discover(cwd: Path, env: Mapping[str, str]) -> dict[str, str | Path | None]:
     """Read project settings for ``cwd`` from ``.lineage/config.json`` and the
     conventional layout, with ``XYLE_TRACE_*`` environment overrides.
 
@@ -43,19 +43,42 @@ def _discover(cwd: Path, env: Mapping[str, str]) -> dict[str, str | None]:
     if config_path.is_file():
         try:
             config = json.loads(config_path.read_text())
-        except (OSError, json.JSONDecodeError) as error:
+        except (OSError, ValueError) as error:
             raise DiscoveryError(f"failed to read {config_path}: {error}") from error
         if not isinstance(config, dict):
             raise DiscoveryError(f"{config_path} must contain a JSON object")
+        for key in _FIELDS:
+            if key in config and (
+                not isinstance(config[key], str)
+                or not config[key]
+                or config[key] != config[key].strip()
+            ):
+                raise DiscoveryError(
+                    f"{config_path}: {key} must be a nonempty string without surrounding whitespace"
+                )
 
     defaults = {
         "db": cwd / ".lineage" / "graph.db",
         "root": cwd,
         "contracts": cwd / "contracts.yaml",
     }
-    resolved: dict[str, str | None] = {}
+    resolved: dict[str, str | Path | None] = {}
     for key in _FIELDS:
-        resolved[key] = env.get(f"XYLE_TRACE_{key.upper()}") or config.get(key) or defaults.get(key)
+        value = env.get(f"XYLE_TRACE_{key.upper()}") or config.get(key) or defaults.get(key)
+        if key == "project":
+            if value is not None and (
+                not isinstance(value, str) or not value or value != value.strip()
+            ):
+                raise DiscoveryError(
+                    "project must be a nonempty string without surrounding whitespace"
+                )
+        elif value is not None:
+            if not isinstance(value, (str, Path)) or not str(value).strip():
+                raise DiscoveryError(f"{key} must be a nonempty path string")
+            value = Path(value)
+            if not value.is_absolute():
+                value = cwd / value
+        resolved[key] = value
     return resolved
 
 
@@ -89,7 +112,8 @@ def main(argv: list[str] | None = None) -> int:
     except ModuleNotFoundError as error:
         if error.name == "mcp":
             print(
-                "MCP support is optional. Install with: pip install 'xyle-trace[mcp]'",
+                "MCP support is optional. Install with: pip install "
+                "'xyle-trace[mcp] @ git+https://github.com/xyle-labs/xyle-trace.git'",
                 file=sys.stderr,
             )
             return 2

@@ -1,6 +1,7 @@
 # Result explorer and reports
 
-Status: planned. Delivery tasks are tracked in [ROADMAP.md](../ROADMAP.md).
+Status: implemented baseline under review. Interactive browser acceptance remains
+outstanding. Delivery tasks are tracked in [ROADMAP.md](../ROADMAP.md).
 This is a generic toolkit feature; example-specific analysis belongs to its
 consuming repository.
 
@@ -83,10 +84,22 @@ content is represented by an explicit omission, not a broken or misleading link.
 
 ## Current baseline and acceptance
 
-The existing HTML export is a searchable node list with upstream/downstream
-filters and a JSON inspector. It is useful for inspection but does not yet
-provide the connected result-first graph, readable calculation panels, or
-curated report described here. Raw metadata can remain an optional detail view.
+The HTML export now has result cards, a connected SVG dependency view, a linear
+keyboard path, readable explanation sections, version-aware links, and optional
+raw metadata. Selected reports have their own historical contexts, print
+formatting, and a projected-data preview. Source text and executable code are
+omitted from these sharing defaults. Large diagrams group branches by relationship,
+with per-branch expansion/collapse and 80-node paging. Shared dependencies and
+cycles are visited once; the complete linear path remains available, and selecting
+a hidden node reveals its branch and page. Current graph context and retained
+historical inputs are labeled explicitly. See [the workflow](workflow.md) for commands.
+
+Selecting an input or source before choosing `Affected outputs` anchors the
+current dependency view to that node. Following affected results keeps the
+anchor fixed. Links and Back preserve the impact root, current/retained basis,
+and inspected versions; returning upstream restores the selected result's context.
+An additional view checksum covers records, dependencies, and explanations;
+metadata-only node revisions cannot detect every record change.
 
 Acceptance requires an end-to-end browser test that selects a result, follows
 its calculation and record backing to an exact source version, inspects an

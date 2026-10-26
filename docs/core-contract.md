@@ -127,6 +127,8 @@ Traversal includes explicit edges and these recorded dependency references:
 - dataset → evidence/decision, through its current record resolutions;
 - evidence → snapshot, through `snapshot_id`;
 - snapshot → source, through `source_id`.
+- subject → methodology/exclusion/correction decision, through its recorded
+  subject or changed-dataset references.
 
 These references need no duplicate graph edges. `explain` returns ancestor IDs,
 source IDs, node and edge metadata, and the implicit dependency pairs. JSON export
@@ -228,6 +230,10 @@ Only assumption decisions can back records. Corrections atomically record a
 rationale and edit the specified rows, invalidating old approvals. Exclusion and
 methodology decisions record subjects and rationale; they do not silently delete
 rows or fabricate assumptions. A decision cannot change kind under the same key.
+New corrections retain `previous_records` with the old values, revisions,
+resolutions, and backing node state. These correction receipts are immutable;
+identical retries retain the original receipt, and subsequent corrections need
+new keys. Older receipts and direct low-level edits are not backfilled.
 
 Claim review is a separate operation that creates an immutable review decision and
 REVIEWED_BY edges, verifies the expected claim revisions, and records review state.
@@ -313,7 +319,9 @@ read-back path `verified_locator` anchor checks use internally; `content`
 mode is what makes the retained bytes inspectable outside that check, through
 `xyle-trace show --snapshot` or the equivalent `query` request.
 
-`export` accepts JSON and HTML. JSON without a destination returns the existing graph
+`export` accepts JSON, HTML, selected reports, and project bundles; see
+[the workflow](workflow.md) for report preview and bundle options.
+JSON without a destination returns the existing graph
 export inline. JSON with a project-relative destination writes the same canonical
 UTF-8 JSON bytes atomically and returns the relative path, content hash, and node/
 edge counts. Both JSON forms preserve legacy records and share the same hash.
@@ -445,6 +453,15 @@ invalid/missing output, and mismatching replay are recorded failures. The config
 timeout bounds the direct subprocess; this is not an OS sandbox or descendant-process
 resource manager. Managed bundles and outputs use the default 25 MiB blob limit.
 
+Optional `--out` delivers the same canonical JSON to a project-relative working
+file after successful execution or replay. The run retains a `working_output`
+descriptor and `output_file_hashes` entry, with a separate stable working Artifact
+and producer edge. New keys can update an unchanged recorded delivery; exact
+retries verify it without restoring missing files or overwriting edits. Retained
+outputs stay immutable. Filesystem publication and database commit are separate;
+an interrupted final commit can leave a file with an ambiguous started run. See
+[delivery and recovery limits](execution.md#deliver-a-working-json-file).
+
 Replay verifies original bundle/output integrity and interpreter/platform identity,
 then consumes those retained contents and the original policy receipt rather than
 current logical records. A successful matching replay has `capture_mode: managed`,
@@ -460,9 +477,11 @@ input contents. Current-data policy gaps remain unresolved by replay.
 using the existing protected atomic file export path. Its response remains a file
 reference, hash, and node/edge counts. JSON inline/file behavior is unchanged.
 The CLI also accepts `export --format html --out ...`, rejects unknown projects,
-and atomically publishes output. It protects the database and sidecars, including
-aliases. CLI `--out` is an explicitly chosen path; the MCP/service exporter adds
-configured project-root, policy-file, and managed-snapshot protections.
+and atomically publishes output through the same protected service path.
+HTML, report, and bundle CLI destinations stay within `--root` (or the root
+inferred from the database location) and protect the database, sidecars, policy,
+and managed snapshots, including aliases. The standalone JSON CLI export retains
+its explicit destination path and database/sidecar protections.
 The CLI also recognizes legacy project data without an explicit Project node;
 an entirely unknown project is rejected.
 
@@ -535,20 +554,20 @@ read before operations that reload policies themselves. Query, export, snapshot,
 and finish retain their existing policy-loading behavior. Imports open no database
 or server; startup diagnostics and logs use stderr, preserving protocol stdout.
 
-The installed and tested SDK is 2.1.1, within the optional `mcp>=2,<3` constraint.
+The installed and tested SDK is 2.2.0, within the optional `mcp>=2,<3` constraint.
 Its generated argument and union-output behavior was checked against local SDK
 code and the [SDK structured output documentation](https://py.sdk.modelcontextprotocol.io/servers/structured-output/).
 Tests exercise real stdio clients using the modern protocol and the legacy
 handshake, including two independent servers competing over one database.
 All tool result schemas are exercised. The continuation fixture also covers both
-handshakes. This is SDK compatibility evidence; live Codex/Claude skill behavior
-remains a separate unverified check.
+handshakes. This is SDK compatibility evidence; [live-host findings](agent-acceptance.md)
+track the separate behavioral observations and remaining acceptance gaps.
 
-A separate installation without MCP passes 408 core tests (four MCP test
-modules skip: `test_main_discovery.py`, `test_server.py`, `test_stdio.py`, and
-`test_workflow.py`), imports the service, and runs the installed core CLI. Its
-optional MCP command exits with installation guidance rather than a traceback.
-With MCP installed, 439 tests pass.
+Core-only CI installs without MCP, skips the four MCP test modules
+(`test_main_discovery.py`, `test_server.py`, `test_stdio.py`, and `test_workflow.py`),
+imports the service, and runs the installed core CLI. Its optional MCP command
+exits with installation guidance rather than a traceback. The full CI matrix also
+tests with MCP installed; current test counts belong to those check results.
 
 ## Portable agent skills
 
@@ -575,7 +594,7 @@ below verifies the tool workflow; a live host comparison remains separate work.
 releases, records, contracts, and replay instructions. `tests/mcp/test_workflow.py`
 initializes through the CLI and uses real stdio tools for every subsequent graph
 read and write. It covers all eight tools under the modern `2026-07-28` protocol
-and legacy handshake with MCP SDK 2.1.1.
+and legacy handshake with the installed MCP SDK.
 
 The first session binds two observed records with one evidence operation, captures
 a reported sum of 30, and attaches a reviewed claim. A new captured release changes
@@ -657,12 +676,14 @@ whether to trust it.
   a re-derived one, so a replay bundle survives a rename even though live
   lookups by ID would not. Choose a project name deliberately before you have
   much to lose from changing it.
-- **Live agent adherence to the five skills is unverified.** SDK protocol
+- **Live agent adherence depends on the host and task.** SDK protocol
   compatibility — that the MCP tools respond correctly over stdio, under both
   the modern and legacy handshakes — is tested (see [protocol continuation
   fixture](#protocol-continuation-fixture)). Whether a given host's agent
   actually reads and follows the installed skills during real work is a
-  separate behavioral question this repository's tests do not answer.
+  separate behavioral question this repository's tests do not answer. The
+  [bounded live-host findings](agent-acceptance.md) report observations without
+  treating them as general reliability or full cross-host acceptance.
 - **The toolkit records what the agent reports, nothing it doesn't.** It has
   no way to detect a source the agent consulted but never registered, a
   transformation it ran but never recorded, or a claim it drafted but never
@@ -672,11 +693,10 @@ whether to trust it.
   `xyle-trace ledger` (`queries/ledger.py`) tells you which assumption
   decisions currently back at least one record (`standing`) and which back
   none (`unbacked`) — deliberately not a third `retired` state, because a
-  correction deletes the resolution row linking the old assumption to the
-  record it backed (`Store.put_records`), so by the time anything asks, the
-  very link that would distinguish "superseded by better evidence" from
-  "never used" is already gone. An `unbacked` assumption may be either; the
-  toolkit will not guess which, and no field is added to fake the distinction.
+  correction deletes the current resolution row linking the old assumption to
+  its record. New correction receipts retain that prior backing, but older
+  corrections and direct record edits may not. The ledger remains a current-state
+  view; inspect the actual correction receipts when historical backing is needed.
 - **Ungoverned datasets and orphan artifacts are warnings, never blocking.**
   `ungoverned_dataset` (a dataset with records no contract governs) and
   `orphan_artifact` (an artifact with no incoming *`produced`* edge — an
@@ -696,13 +716,21 @@ whether to trust it.
   against — so seeing it requires a `validate` call. Adding a scratch dataset
   or an ad hoc artifact to a project cannot break its existing contracts.
 
-## Verification and next phase
+## Verification and acceptance
+
+See [capture, explanation, review, sharing, and handoff](workflow.md) for the
+current additional CLI commands and request fields. Existing `lineage.query`
+explain requests accept `run_id`, `revision`, `selector`, and `include_code`.
+`lineage.validate` accepts `health` and explicit `receipt_paths`. Existing
+`lineage.export` accepts `report` and `bundle` formats, `selected_ids`, a report
+`title`, and explicit bundle `include_content`. A report without a destination
+returns its sanitized preview. No MCP tool or node type has been added.
 
 From an environment with the project development dependencies installed:
 
 ```bash
 .venv/bin/python -m pytest -q
-.venv/bin/python -m ruff check src tests
+.venv/bin/python -m ruff check src tests scripts
 PYTHONPATH=src .venv/bin/python -m xyle_trace.cli.main --help
 ```
 
@@ -712,14 +740,15 @@ correction, persisted claim review state, and recovery from a fresh store sessio
 The remaining tests cover policy errors, project isolation, immutable snapshots,
 rollback, schema compatibility, and export of legacy records.
 
-The MCP server and skills work is complete, along with the toolkit-only
-completion work: retained-input execution/replay and HTML exploration. Domain
-work is no longer excluded: consuming projects live outside this repository and
-outside the package, and feed requirements back against this contract. Toolkit
-completion does not assert that any particular domain workload built on top of
-it is complete.
+The implemented baseline includes the MCP server and skills, retained-input
+execution/replay, installed onboarding/demo, result explanations, project health,
+HTML exploration, selected reports, and portable handoffs. Domain workloads live
+in consuming projects outside this repository and package; their completion is
+separate from these toolkit capabilities.
 
-The next product milestones are onboarding, result-first visualization/reporting,
-and validation through a separate consuming project. See [ROADMAP.md](../ROADMAP.md)
-for the maintained scope and acceptance criteria; these improvements are not
-implied to be complete by the protocol and execution work above.
+Interactive explorer/report acceptance and cross-host validation remain open.
+[Bounded host findings](agent-acceptance.md) record synthetic Codex CLI capture
+and recovery without establishing Claude behavior, live MCP onboarding, or exact
+preflight ordering. See [ROADMAP.md](../ROADMAP.md) for the maintained acceptance
+criteria and optional external example; protocol and package checks do not close
+those behavioral gates.
