@@ -34,6 +34,7 @@ class Resources(HTMLParser):
         "mark-mono.svg",
         "favicon.svg",
         "social-preview.svg",
+        "icon-square.svg",
     ],
 )
 def test_brand_assets_are_accessible_vector_art_without_embedded_or_remote_resources(name):

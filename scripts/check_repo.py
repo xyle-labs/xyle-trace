@@ -73,6 +73,9 @@ REVIEWED_MEDIA = {
     ".github/assets/brand/social-preview.png": {
         "9726ce029bfb4670f96cb21e61858daa624c103886b2808c1febbb7416389727": 38226,
     },
+    ".github/assets/brand/icon-square.png": {
+        "5406bf16cada05a062a06d2cf5a1d1aa80784e354d8d8fb109e1a05bd514dcf1": 9013,
+    },
 }
 
 
