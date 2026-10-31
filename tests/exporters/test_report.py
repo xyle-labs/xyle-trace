@@ -47,7 +47,10 @@ def test_report_requires_explicit_selection_and_limits_to_upstream_closure(graph
     assert re.search(r'href="#(result-[0-9a-f]+)', report)[1] != re.search(
         r'href="#(result-[0-9a-f]+)', render_report(changed, [], selected_ids=["result"]))[1]
     assert "@media print" in report
-    assert '<script src=' not in report and '<link ' not in report
+    assert '<script src=' not in report
+    resources = re.findall(r'<link\b[^>]*>', report)
+    assert len(resources) == 1
+    assert 'rel="icon"' in resources[0] and 'href="data:image/svg+xml,' in resources[0]
 
 
 @pytest.mark.parametrize("tag", ["script", "SCRIPT", "ScRiPt"])

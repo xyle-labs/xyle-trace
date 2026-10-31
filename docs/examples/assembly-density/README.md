@@ -1,3 +1,10 @@
+<a href="../../../README.md">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../../../src/xyle_trace/assets/brand/logo-dark.svg">
+    <img src="../../../src/xyle_trace/assets/brand/logo.svg" alt="Xyle Trace" width="240">
+  </picture>
+</a>
+
 # Real example: from assembly listings to a source-backed map
 
 Codex compares published planned assembly occurrences in **Berlin, Dresden and

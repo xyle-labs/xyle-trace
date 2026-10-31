@@ -67,7 +67,11 @@ MAX_BYTES = 1024 * 1024
 # must continue to inspect earlier commits. See the example's PUBLICATION.md.
 REVIEWED_MEDIA = {
     ".github/assets/codex-workflow.gif": {
+        "dbc3069d7dcdaf4c6da182545ce79c125447cdbf95e72948824146f48f1368fe": 7040530,
         "7873585f55ce20ac4c96fab7f94c47e955e5dfab0c15d55c74315eb1573214b5": 6862293,
+    },
+    ".github/assets/brand/social-preview.png": {
+        "9726ce029bfb4670f96cb21e61858daa624c103886b2808c1febbb7416389727": 38226,
     },
 }
 
