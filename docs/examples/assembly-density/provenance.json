@@ -1,0 +1,729 @@
+{
+  "format": "xyle-trace-public-example/v1",
+  "scope": "Selected, sanitized publication view of real recorded paths. Not a full graph export, project handoff or retained replay bundle.",
+  "nodes": [
+    {
+      "id": "artifact:a4ca2860aabc6faa",
+      "type": "artifact",
+      "label": "Scoped extraction output (retained privately)",
+      "content_hash": "sha256:67b4ba07b59f3c0949e4d721d061b4647c1853e8d1dfa90c9476c867df8d376e"
+    },
+    {
+      "id": "artifact:d68a14b1c904c8a6",
+      "type": "artifact",
+      "label": "Original managed result (retained privately)",
+      "content_hash": "sha256:2a92186b613184f23d8fb54bd7c4bfccdce4239b3969a35987757cec33743a9c"
+    },
+    {
+      "id": "claim:8efeeacf6b0b3deb",
+      "type": "claim",
+      "label": "selected-listings-rate-comparison"
+    },
+    {
+      "id": "dataset:91bc2635ac9636a2",
+      "type": "dataset",
+      "label": "population"
+    },
+    {
+      "id": "dataset:abcf24cd40b5f12b",
+      "type": "dataset",
+      "label": "coordinates"
+    },
+    {
+      "id": "dataset:cfabacdaf7a4c096",
+      "type": "dataset",
+      "label": "events"
+    },
+    {
+      "id": "dataset:f16ec399afe5b199",
+      "type": "dataset",
+      "label": "publication"
+    },
+    {
+      "id": "dataset:f35a7400d4c29424",
+      "type": "dataset",
+      "label": "geometry"
+    },
+    {
+      "id": "evidence_link:124aa34632338bc7",
+      "type": "evidence_link",
+      "label": "Located evidence binding",
+      "snapshot_id": "source_snapshot:a3e0c7413293f603",
+      "provisional": false
+    },
+    {
+      "id": "evidence_link:251cbad0f3d252ef",
+      "type": "evidence_link",
+      "label": "Located evidence binding",
+      "snapshot_id": "source_snapshot:c5b54e3a91d1dae8",
+      "provisional": false
+    },
+    {
+      "id": "evidence_link:3bb0cc6942a2fc18",
+      "type": "evidence_link",
+      "label": "Located evidence binding",
+      "snapshot_id": "source_snapshot:1337d708dc545a6c",
+      "provisional": false
+    },
+    {
+      "id": "evidence_link:4fa140273d127b96",
+      "type": "evidence_link",
+      "label": "Located evidence binding",
+      "snapshot_id": "source_snapshot:a48c326c2dc69442",
+      "provisional": false
+    },
+    {
+      "id": "evidence_link:53e32866709f8710",
+      "type": "evidence_link",
+      "label": "Located evidence binding",
+      "snapshot_id": "source_snapshot:6db580512c847f30",
+      "provisional": false
+    },
+    {
+      "id": "evidence_link:6a3ad951ccba2696",
+      "type": "evidence_link",
+      "label": "Located evidence binding",
+      "snapshot_id": "source_snapshot:a3e0c7413293f603",
+      "provisional": false
+    },
+    {
+      "id": "evidence_link:9f3fea12535a9fb6",
+      "type": "evidence_link",
+      "label": "Located evidence binding",
+      "snapshot_id": "source_snapshot:1337d708dc545a6c",
+      "provisional": false
+    },
+    {
+      "id": "evidence_link:b2531c39203c4d63",
+      "type": "evidence_link",
+      "label": "Located evidence binding",
+      "snapshot_id": "source_snapshot:836b332344cede92",
+      "provisional": false
+    },
+    {
+      "id": "evidence_link:e1391a80a1b7351e",
+      "type": "evidence_link",
+      "label": "Located evidence binding",
+      "snapshot_id": "source_snapshot:2dfd8114b8f8a6a4",
+      "provisional": false
+    },
+    {
+      "id": "evidence_link:e99900a29e70ea14",
+      "type": "evidence_link",
+      "label": "Located evidence binding",
+      "snapshot_id": "source_snapshot:836b332344cede92",
+      "provisional": false
+    },
+    {
+      "id": "indicator:3c26e363b6543ff6",
+      "type": "indicator",
+      "label": "listed-assemblies-per-100k"
+    },
+    {
+      "id": "run:6a649b3c5720660b",
+      "type": "run",
+      "label": "scoped-extraction-v1",
+      "capture_mode": "managed",
+      "status": "succeeded"
+    },
+    {
+      "id": "run:fda1e81d8522d3f5",
+      "type": "run",
+      "label": "assembly-density-v1",
+      "capture_mode": "managed",
+      "status": "succeeded"
+    },
+    {
+      "id": "source:05d5cc24ba1bc553",
+      "type": "source",
+      "label": "rostock-assembly-text",
+      "uri": "https://rathaus.rostock.de/de/versammlungen/343356"
+    },
+    {
+      "id": "source:1f43086229b19d16",
+      "type": "source",
+      "label": "geonames-city-coordinates",
+      "uri": "https://download.geonames.org/export/dump/cities15000.zip"
+    },
+    {
+      "id": "source:3789a787272c78c6",
+      "type": "source",
+      "label": "dresden-assembly-data",
+      "uri": "https://www.dresden.de/data_ext/versammlungsuebersicht/Versammlungen.json"
+    },
+    {
+      "id": "source:52ba6acc3f2c1a84",
+      "type": "source",
+      "label": "dresden-assembly-scope",
+      "uri": "https://www.dresden.de/de/rathaus/dienstleistungen/versammlungsuebersicht.php"
+    },
+    {
+      "id": "source:5857f4eed7e73966",
+      "type": "source",
+      "label": "berlin-assembly-list",
+      "uri": "https://www.berlin.de/polizei/service/versammlungsbehoerde/versammlungen-aufzuege/"
+    },
+    {
+      "id": "source:7e042d1f57023414",
+      "type": "source",
+      "label": "destatis-cities-2024",
+      "uri": "https://www.destatis.de/DE/Themen/Laender-Regionen/Regionales/Gemeindeverzeichnis/Administrativ/05-staedte.xlsx?__blob=publicationFile&v=13"
+    },
+    {
+      "id": "source:ef95dba9795c0240",
+      "type": "source",
+      "label": "natural-earth-countries",
+      "uri": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson"
+    },
+    {
+      "id": "source_snapshot:1337d708dc545a6c",
+      "type": "source_snapshot",
+      "label": "Recorded source version",
+      "source_id": "source:3789a787272c78c6",
+      "content_hash": "sha256:7905412c1ed2e38002e181cef8edd7423230318dfcb062b8b17a86ecb5b15967"
+    },
+    {
+      "id": "source_snapshot:2dfd8114b8f8a6a4",
+      "type": "source_snapshot",
+      "label": "Recorded source version",
+      "source_id": "source:ef95dba9795c0240",
+      "content_hash": "sha256:3e458fc036ad0a66411f2c1e6cac49c5d7bfb81cb1123bc513b22511a2b7fdeb"
+    },
+    {
+      "id": "source_snapshot:6db580512c847f30",
+      "type": "source_snapshot",
+      "label": "Recorded source version",
+      "source_id": "source:7e042d1f57023414",
+      "content_hash": "sha256:4031aad68e4d97750ac8874e665545bc373b006e5a9f033d35256e08afac02c1"
+    },
+    {
+      "id": "source_snapshot:836b332344cede92",
+      "type": "source_snapshot",
+      "label": "Recorded source version",
+      "source_id": "source:5857f4eed7e73966",
+      "content_hash": "sha256:9a5587b58fb859633fa6370aa6f125d9dde70f7556571d532fd7b8ffdb3771a5"
+    },
+    {
+      "id": "source_snapshot:a3e0c7413293f603",
+      "type": "source_snapshot",
+      "label": "Recorded source version",
+      "source_id": "source:05d5cc24ba1bc553",
+      "content_hash": "sha256:170ae2276b7236d99d2ca35babeb46cc99f445906aa1d3470c81ef5f85147b79"
+    },
+    {
+      "id": "source_snapshot:a48c326c2dc69442",
+      "type": "source_snapshot",
+      "label": "Recorded source version",
+      "source_id": "source:1f43086229b19d16",
+      "content_hash": "sha256:449edf72e23bbb81532f5617bca2ba2e37357304ab6db34733a19a325add3f7d"
+    },
+    {
+      "id": "source_snapshot:c5b54e3a91d1dae8",
+      "type": "source_snapshot",
+      "label": "Recorded source version",
+      "source_id": "source:52ba6acc3f2c1a84",
+      "content_hash": "sha256:3cd44f92505d2bbe29fd56f9f476e4454955cfdd5ed35b438a557dfb13fea264"
+    }
+  ],
+  "paths": [
+    {
+      "label": "events / Berlin",
+      "node_ids": [
+        "source:5857f4eed7e73966",
+        "source_snapshot:836b332344cede92",
+        "evidence_link:b2531c39203c4d63",
+        "dataset:cfabacdaf7a4c096"
+      ],
+      "hops": [
+        {
+          "src": "source:5857f4eed7e73966",
+          "dst": "source_snapshot:836b332344cede92",
+          "recorded_relationship": "snapshot.source_id"
+        },
+        {
+          "src": "source_snapshot:836b332344cede92",
+          "dst": "evidence_link:b2531c39203c4d63",
+          "recorded_relationship": "evidence.snapshot_id"
+        },
+        {
+          "src": "evidence_link:b2531c39203c4d63",
+          "dst": "dataset:cfabacdaf7a4c096",
+          "recorded_relationship": "record evidence resolution"
+        }
+      ]
+    },
+    {
+      "label": "events subset feeds managed calculation / Berlin",
+      "node_ids": [
+        "dataset:cfabacdaf7a4c096",
+        "run:fda1e81d8522d3f5"
+      ],
+      "hops": [
+        {
+          "src": "dataset:cfabacdaf7a4c096",
+          "dst": "run:fda1e81d8522d3f5",
+          "recorded_relationship": "used_input (dependency→consumer)"
+        }
+      ]
+    },
+    {
+      "label": "events / Dresden",
+      "node_ids": [
+        "source:3789a787272c78c6",
+        "source_snapshot:1337d708dc545a6c",
+        "evidence_link:9f3fea12535a9fb6",
+        "dataset:cfabacdaf7a4c096"
+      ],
+      "hops": [
+        {
+          "src": "source:3789a787272c78c6",
+          "dst": "source_snapshot:1337d708dc545a6c",
+          "recorded_relationship": "snapshot.source_id"
+        },
+        {
+          "src": "source_snapshot:1337d708dc545a6c",
+          "dst": "evidence_link:9f3fea12535a9fb6",
+          "recorded_relationship": "evidence.snapshot_id"
+        },
+        {
+          "src": "evidence_link:9f3fea12535a9fb6",
+          "dst": "dataset:cfabacdaf7a4c096",
+          "recorded_relationship": "record evidence resolution"
+        }
+      ]
+    },
+    {
+      "label": "events subset feeds managed calculation / Dresden",
+      "node_ids": [
+        "dataset:cfabacdaf7a4c096",
+        "run:fda1e81d8522d3f5"
+      ],
+      "hops": [
+        {
+          "src": "dataset:cfabacdaf7a4c096",
+          "dst": "run:fda1e81d8522d3f5",
+          "recorded_relationship": "used_input (dependency→consumer)"
+        }
+      ]
+    },
+    {
+      "label": "events / Rostock",
+      "node_ids": [
+        "source:05d5cc24ba1bc553",
+        "source_snapshot:a3e0c7413293f603",
+        "evidence_link:124aa34632338bc7",
+        "dataset:cfabacdaf7a4c096"
+      ],
+      "hops": [
+        {
+          "src": "source:05d5cc24ba1bc553",
+          "dst": "source_snapshot:a3e0c7413293f603",
+          "recorded_relationship": "snapshot.source_id"
+        },
+        {
+          "src": "source_snapshot:a3e0c7413293f603",
+          "dst": "evidence_link:124aa34632338bc7",
+          "recorded_relationship": "evidence.snapshot_id"
+        },
+        {
+          "src": "evidence_link:124aa34632338bc7",
+          "dst": "dataset:cfabacdaf7a4c096",
+          "recorded_relationship": "record evidence resolution"
+        }
+      ]
+    },
+    {
+      "label": "events subset feeds managed calculation / Rostock",
+      "node_ids": [
+        "dataset:cfabacdaf7a4c096",
+        "run:fda1e81d8522d3f5"
+      ],
+      "hops": [
+        {
+          "src": "dataset:cfabacdaf7a4c096",
+          "dst": "run:fda1e81d8522d3f5",
+          "recorded_relationship": "used_input (dependency→consumer)"
+        }
+      ]
+    },
+    {
+      "label": "population",
+      "node_ids": [
+        "source:7e042d1f57023414",
+        "source_snapshot:6db580512c847f30",
+        "evidence_link:53e32866709f8710",
+        "dataset:91bc2635ac9636a2"
+      ],
+      "hops": [
+        {
+          "src": "source:7e042d1f57023414",
+          "dst": "source_snapshot:6db580512c847f30",
+          "recorded_relationship": "snapshot.source_id"
+        },
+        {
+          "src": "source_snapshot:6db580512c847f30",
+          "dst": "evidence_link:53e32866709f8710",
+          "recorded_relationship": "evidence.snapshot_id"
+        },
+        {
+          "src": "evidence_link:53e32866709f8710",
+          "dst": "dataset:91bc2635ac9636a2",
+          "recorded_relationship": "record evidence resolution"
+        }
+      ]
+    },
+    {
+      "label": "population feeds managed division",
+      "node_ids": [
+        "dataset:91bc2635ac9636a2",
+        "run:fda1e81d8522d3f5"
+      ],
+      "hops": [
+        {
+          "src": "dataset:91bc2635ac9636a2",
+          "dst": "run:fda1e81d8522d3f5",
+          "recorded_relationship": "used_input (dependency→consumer)"
+        }
+      ]
+    },
+    {
+      "label": "managed run produced result.json",
+      "node_ids": [
+        "run:fda1e81d8522d3f5",
+        "artifact:d68a14b1c904c8a6"
+      ],
+      "hops": [
+        {
+          "src": "run:fda1e81d8522d3f5",
+          "dst": "artifact:d68a14b1c904c8a6",
+          "recorded_relationship": "produced"
+        }
+      ]
+    },
+    {
+      "label": "indicator derives from computed result",
+      "node_ids": [
+        "artifact:d68a14b1c904c8a6",
+        "indicator:3c26e363b6543ff6"
+      ],
+      "hops": [
+        {
+          "src": "artifact:d68a14b1c904c8a6",
+          "dst": "indicator:3c26e363b6543ff6",
+          "recorded_relationship": "derived_from (dependency→consumer)"
+        }
+      ]
+    },
+    {
+      "label": "scoped numerical comparison supported by indicator",
+      "node_ids": [
+        "indicator:3c26e363b6543ff6",
+        "claim:8efeeacf6b0b3deb"
+      ],
+      "hops": [
+        {
+          "src": "indicator:3c26e363b6543ff6",
+          "dst": "claim:8efeeacf6b0b3deb",
+          "recorded_relationship": "supports"
+        }
+      ]
+    },
+    {
+      "label": "source scope / berlin-publication",
+      "node_ids": [
+        "source:5857f4eed7e73966",
+        "source_snapshot:836b332344cede92",
+        "evidence_link:e99900a29e70ea14",
+        "dataset:f16ec399afe5b199",
+        "claim:8efeeacf6b0b3deb"
+      ],
+      "hops": [
+        {
+          "src": "source:5857f4eed7e73966",
+          "dst": "source_snapshot:836b332344cede92",
+          "recorded_relationship": "snapshot.source_id"
+        },
+        {
+          "src": "source_snapshot:836b332344cede92",
+          "dst": "evidence_link:e99900a29e70ea14",
+          "recorded_relationship": "evidence.snapshot_id"
+        },
+        {
+          "src": "evidence_link:e99900a29e70ea14",
+          "dst": "dataset:f16ec399afe5b199",
+          "recorded_relationship": "record evidence resolution"
+        },
+        {
+          "src": "dataset:f16ec399afe5b199",
+          "dst": "claim:8efeeacf6b0b3deb",
+          "recorded_relationship": "supports"
+        }
+      ]
+    },
+    {
+      "label": "source scope / dresden-file-date",
+      "node_ids": [
+        "source:3789a787272c78c6",
+        "source_snapshot:1337d708dc545a6c",
+        "evidence_link:3bb0cc6942a2fc18",
+        "dataset:f16ec399afe5b199",
+        "claim:8efeeacf6b0b3deb"
+      ],
+      "hops": [
+        {
+          "src": "source:3789a787272c78c6",
+          "dst": "source_snapshot:1337d708dc545a6c",
+          "recorded_relationship": "snapshot.source_id"
+        },
+        {
+          "src": "source_snapshot:1337d708dc545a6c",
+          "dst": "evidence_link:3bb0cc6942a2fc18",
+          "recorded_relationship": "evidence.snapshot_id"
+        },
+        {
+          "src": "evidence_link:3bb0cc6942a2fc18",
+          "dst": "dataset:f16ec399afe5b199",
+          "recorded_relationship": "record evidence resolution"
+        },
+        {
+          "src": "dataset:f16ec399afe5b199",
+          "dst": "claim:8efeeacf6b0b3deb",
+          "recorded_relationship": "supports"
+        }
+      ]
+    },
+    {
+      "label": "source scope / dresden-scope-0",
+      "node_ids": [
+        "source:52ba6acc3f2c1a84",
+        "source_snapshot:c5b54e3a91d1dae8",
+        "evidence_link:251cbad0f3d252ef",
+        "dataset:f16ec399afe5b199",
+        "claim:8efeeacf6b0b3deb"
+      ],
+      "hops": [
+        {
+          "src": "source:52ba6acc3f2c1a84",
+          "dst": "source_snapshot:c5b54e3a91d1dae8",
+          "recorded_relationship": "snapshot.source_id"
+        },
+        {
+          "src": "source_snapshot:c5b54e3a91d1dae8",
+          "dst": "evidence_link:251cbad0f3d252ef",
+          "recorded_relationship": "evidence.snapshot_id"
+        },
+        {
+          "src": "evidence_link:251cbad0f3d252ef",
+          "dst": "dataset:f16ec399afe5b199",
+          "recorded_relationship": "record evidence resolution"
+        },
+        {
+          "src": "dataset:f16ec399afe5b199",
+          "dst": "claim:8efeeacf6b0b3deb",
+          "recorded_relationship": "supports"
+        }
+      ]
+    },
+    {
+      "label": "source scope / dresden-scope-1",
+      "node_ids": [
+        "source:52ba6acc3f2c1a84",
+        "source_snapshot:c5b54e3a91d1dae8",
+        "evidence_link:251cbad0f3d252ef",
+        "dataset:f16ec399afe5b199",
+        "claim:8efeeacf6b0b3deb"
+      ],
+      "hops": [
+        {
+          "src": "source:52ba6acc3f2c1a84",
+          "dst": "source_snapshot:c5b54e3a91d1dae8",
+          "recorded_relationship": "snapshot.source_id"
+        },
+        {
+          "src": "source_snapshot:c5b54e3a91d1dae8",
+          "dst": "evidence_link:251cbad0f3d252ef",
+          "recorded_relationship": "evidence.snapshot_id"
+        },
+        {
+          "src": "evidence_link:251cbad0f3d252ef",
+          "dst": "dataset:f16ec399afe5b199",
+          "recorded_relationship": "record evidence resolution"
+        },
+        {
+          "src": "dataset:f16ec399afe5b199",
+          "dst": "claim:8efeeacf6b0b3deb",
+          "recorded_relationship": "supports"
+        }
+      ]
+    },
+    {
+      "label": "source scope / rostock-capture-fidelity",
+      "node_ids": [
+        "source:05d5cc24ba1bc553",
+        "source_snapshot:a3e0c7413293f603",
+        "evidence_link:6a3ad951ccba2696",
+        "dataset:f16ec399afe5b199",
+        "claim:8efeeacf6b0b3deb"
+      ],
+      "hops": [
+        {
+          "src": "source:05d5cc24ba1bc553",
+          "dst": "source_snapshot:a3e0c7413293f603",
+          "recorded_relationship": "snapshot.source_id"
+        },
+        {
+          "src": "source_snapshot:a3e0c7413293f603",
+          "dst": "evidence_link:6a3ad951ccba2696",
+          "recorded_relationship": "evidence.snapshot_id"
+        },
+        {
+          "src": "evidence_link:6a3ad951ccba2696",
+          "dst": "dataset:f16ec399afe5b199",
+          "recorded_relationship": "record evidence resolution"
+        },
+        {
+          "src": "dataset:f16ec399afe5b199",
+          "dst": "claim:8efeeacf6b0b3deb",
+          "recorded_relationship": "supports"
+        }
+      ]
+    },
+    {
+      "label": "retained scoped extraction / Berlin",
+      "node_ids": [
+        "source_snapshot:836b332344cede92",
+        "run:6a649b3c5720660b",
+        "artifact:a4ca2860aabc6faa",
+        "dataset:cfabacdaf7a4c096"
+      ],
+      "hops": [
+        {
+          "src": "source_snapshot:836b332344cede92",
+          "dst": "run:6a649b3c5720660b",
+          "recorded_relationship": "used_input (dependency→consumer)"
+        },
+        {
+          "src": "run:6a649b3c5720660b",
+          "dst": "artifact:a4ca2860aabc6faa",
+          "recorded_relationship": "produced"
+        },
+        {
+          "src": "artifact:a4ca2860aabc6faa",
+          "dst": "dataset:cfabacdaf7a4c096",
+          "recorded_relationship": "derived_from (dependency→consumer)"
+        }
+      ]
+    },
+    {
+      "label": "retained scoped extraction / Dresden",
+      "node_ids": [
+        "source_snapshot:1337d708dc545a6c",
+        "run:6a649b3c5720660b",
+        "artifact:a4ca2860aabc6faa",
+        "dataset:cfabacdaf7a4c096"
+      ],
+      "hops": [
+        {
+          "src": "source_snapshot:1337d708dc545a6c",
+          "dst": "run:6a649b3c5720660b",
+          "recorded_relationship": "used_input (dependency→consumer)"
+        },
+        {
+          "src": "run:6a649b3c5720660b",
+          "dst": "artifact:a4ca2860aabc6faa",
+          "recorded_relationship": "produced"
+        },
+        {
+          "src": "artifact:a4ca2860aabc6faa",
+          "dst": "dataset:cfabacdaf7a4c096",
+          "recorded_relationship": "derived_from (dependency→consumer)"
+        }
+      ]
+    },
+    {
+      "label": "retained scoped extraction / Rostock",
+      "node_ids": [
+        "source_snapshot:a3e0c7413293f603",
+        "run:6a649b3c5720660b",
+        "artifact:a4ca2860aabc6faa",
+        "dataset:cfabacdaf7a4c096"
+      ],
+      "hops": [
+        {
+          "src": "source_snapshot:a3e0c7413293f603",
+          "dst": "run:6a649b3c5720660b",
+          "recorded_relationship": "used_input (dependency→consumer)"
+        },
+        {
+          "src": "run:6a649b3c5720660b",
+          "dst": "artifact:a4ca2860aabc6faa",
+          "recorded_relationship": "produced"
+        },
+        {
+          "src": "artifact:a4ca2860aabc6faa",
+          "dst": "dataset:cfabacdaf7a4c096",
+          "recorded_relationship": "derived_from (dependency→consumer)"
+        }
+      ]
+    },
+    {
+      "label": "coordinates",
+      "node_ids": [
+        "source:1f43086229b19d16",
+        "source_snapshot:a48c326c2dc69442",
+        "evidence_link:4fa140273d127b96",
+        "dataset:abcf24cd40b5f12b"
+      ],
+      "hops": [
+        {
+          "src": "source:1f43086229b19d16",
+          "dst": "source_snapshot:a48c326c2dc69442",
+          "recorded_relationship": "snapshot.source_id"
+        },
+        {
+          "src": "source_snapshot:a48c326c2dc69442",
+          "dst": "evidence_link:4fa140273d127b96",
+          "recorded_relationship": "evidence.snapshot_id"
+        },
+        {
+          "src": "evidence_link:4fa140273d127b96",
+          "dst": "dataset:abcf24cd40b5f12b",
+          "recorded_relationship": "record evidence resolution"
+        }
+      ]
+    },
+    {
+      "label": "geometry",
+      "node_ids": [
+        "source:ef95dba9795c0240",
+        "source_snapshot:2dfd8114b8f8a6a4",
+        "evidence_link:e1391a80a1b7351e",
+        "dataset:f35a7400d4c29424"
+      ],
+      "hops": [
+        {
+          "src": "source:ef95dba9795c0240",
+          "dst": "source_snapshot:2dfd8114b8f8a6a4",
+          "recorded_relationship": "snapshot.source_id"
+        },
+        {
+          "src": "source_snapshot:2dfd8114b8f8a6a4",
+          "dst": "evidence_link:e1391a80a1b7351e",
+          "recorded_relationship": "evidence.snapshot_id"
+        },
+        {
+          "src": "evidence_link:e1391a80a1b7351e",
+          "dst": "dataset:f35a7400d4c29424",
+          "recorded_relationship": "record evidence resolution"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "native_codex_task_completed": true,
+    "numeric_retained_replay_matched": true,
+    "independent_source_check_passed": true,
+    "projected_paths_checked": 21,
+    "review": "Agent review; no human approval implied."
+  }
+}

@@ -6,6 +6,7 @@ Credential detection is handled separately by Gitleaks in hooks and CI.
 
 import argparse
 import fnmatch
+import hashlib
 import re
 import subprocess
 from pathlib import Path, PurePosixPath
@@ -61,6 +62,18 @@ CONTENT_RULES = {
     ),
 }
 MAX_BYTES = 1024 * 1024
+# Binary publication exceptions are reviewed content, never an extension waiver.
+# Keep historical approved hashes when a reviewed asset is replaced: --history
+# must continue to inspect earlier commits. See the example's PUBLICATION.md.
+REVIEWED_MEDIA = {
+    ".github/assets/codex-workflow.gif": {
+        "7873585f55ce20ac4c96fab7f94c47e955e5dfab0c15d55c74315eb1573214b5": 6862293,
+    },
+}
+
+
+def review_limit(path=None):
+    return max([MAX_BYTES, *REVIEWED_MEDIA.get(path, {}).values()])
 
 
 def private_path(value):
@@ -98,9 +111,10 @@ def git(*args):
                                    stderr=subprocess.PIPE)
 
 
-def blob(oid):
-    if int(git("cat-file", "-s", oid)) > MAX_BYTES:
-        return b"x" * (MAX_BYTES + 1)  # Size finding without loading an oversized blob.
+def blob(oid, path=None):
+    limit = review_limit(path)
+    if int(git("cat-file", "-s", oid)) > limit:
+        return b"x" * (limit + 1)  # Finding without loading an oversized blob.
     return git("cat-file", "blob", oid)
 
 
@@ -111,7 +125,14 @@ def report(findings, location):
 
 
 def inspect_file(path, data, mode, location):
-    findings = content_findings(path.encode("utf-8")) | content_findings(data)
+    findings = content_findings(path.encode("utf-8"))
+    approved = REVIEWED_MEDIA.get(path)
+    if approved is None:
+        findings |= content_findings(data)
+    elif approved.get(hashlib.sha256(data).hexdigest()) != len(data):
+        findings.add("unreviewed media bytes")
+    if approved is not None and mode != "100644":
+        findings.add("reviewed media must be a non-executable regular file")
     if private_path(path):
         findings.add("private/generated path")
     if mode not in {"100644", "100755"}:
@@ -160,8 +181,9 @@ def main():
                 seen.add(entry)
                 header, path = entry.split(b"\t", 1)
                 mode, kind, oid = header.decode().split()
-                data = blob(oid) if kind == "blob" else b""
-                failed |= inspect_file(path.decode("utf-8", errors="replace"), data,
+                name = path.decode("utf-8", errors="replace")
+                data = blob(oid, name) if kind == "blob" else b""
+                failed |= inspect_file(name, data,
                                        mode, oid[:12])
         # Tools can create refs pointing directly to trees or blobs. rev-list's
         # commit traversal does not inspect these snapshots.
@@ -176,8 +198,9 @@ def main():
                     seen.add(entry)
                     header, path = entry.split(b"\t", 1)
                     mode, kind, child = header.decode().split()
-                    failed |= inspect_file(path.decode("utf-8", errors="replace"),
-                                           blob(child) if kind == "blob" else b"",
+                    name = path.decode("utf-8", errors="replace")
+                    failed |= inspect_file(name,
+                                           blob(child, name) if kind == "blob" else b"",
                                            mode, child[:12])
         # Annotated tags and notes may carry private text outside commit messages.
         for entry in git("for-each-ref", "--format=%(refname)%00%(taggername) "
@@ -191,8 +214,9 @@ def main():
                 continue
             header, path = entry.split(b"\t", 1)
             mode, oid, stage = header.decode().split()
-            data = blob(oid) if mode != "160000" else b""
-            failed |= inspect_file(path.decode("utf-8", errors="replace"), data,
+            name = path.decode("utf-8", errors="replace")
+            data = blob(oid, name) if mode != "160000" else b""
+            failed |= inspect_file(name, data,
                                    mode if stage == "0" else "unmerged", oid[:12])
     else:
         paths = git("ls-files", "--cached", "--others", "--exclude-standard", "-z")
@@ -204,7 +228,9 @@ def main():
                 failed |= report({"symlink"}, f"working file {index}")
             elif path.exists():
                 with path.open("rb") as stream:
-                    failed |= inspect_file(path.as_posix(), stream.read(MAX_BYTES + 1), "100644",
+                    file_mode = "100755" if path.stat().st_mode & 0o111 else "100644"
+                    failed |= inspect_file(path.as_posix(),
+                                           stream.read(review_limit(path.as_posix()) + 1), file_mode,
                                            f"working file {index}")
     return int(failed)
 

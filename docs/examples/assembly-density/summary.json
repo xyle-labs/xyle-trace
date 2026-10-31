@@ -1,0 +1,85 @@
+{
+  "title": "Published planned assembly occurrences per 100,000 residents",
+  "window": {
+    "end_exclusive": "2026-11-06",
+    "end_inclusive": "2026-11-05",
+    "start_inclusive": "2026-10-30",
+    "timezone": "Europe/Berlin"
+  },
+  "formula": "included listed scheduled occurrences / official residents * 100000",
+  "unit": "listed assembly occurrences per 100,000 residents over seven days",
+  "population_basis": "Destatis official population on 31 December 2024, Census 2022 basis; not municipal population-register figures",
+  "comparability": "Selected-city comparison of published planned listings, not complete German protest activity or confirmed attendance. Publication practices and capture fidelity differ; rates are descriptive and not estimates of protest propensity.",
+  "publication_view": "Aggregate-only summary of the recorded run, not the original retained result artifact.",
+  "source_as_of": "2026-10-30; frozen selected-city listings",
+  "cities": [
+    {
+      "city": "Berlin",
+      "listed_assemblies": 134,
+      "in_window_rows": 135,
+      "population": 3685265,
+      "population_vintage": "2024-12-31",
+      "per_100k": 3.63610215276242,
+      "per_100k_display": "3.636",
+      "by_date": {
+        "2026-10-30": 14,
+        "2026-10-31": 39,
+        "2026-11-01": 13,
+        "2026-11-02": 23,
+        "2026-11-03": 19,
+        "2026-11-04": 13,
+        "2026-11-05": 13
+      },
+      "excluded_count": 1,
+      "exclusions_by_reason": {
+        "exact_duplicate": 1
+      },
+      "source_limitation": "Published notifications, page updated twice daily. Count the dated rows in the captured listing; later changes and unlisted activity are unknown.",
+      "capture_fidelity": "supplied_downloaded_response_copy"
+    },
+    {
+      "city": "Dresden",
+      "listed_assemblies": 15,
+      "in_window_rows": 15,
+      "population": 564904,
+      "population_vintage": "2024-12-31",
+      "per_100k": 2.6553184257856204,
+      "per_100k_display": "2.655",
+      "by_date": {
+        "2026-10-30": 0,
+        "2026-10-31": 6,
+        "2026-11-01": 1,
+        "2026-11-02": 5,
+        "2026-11-03": 3,
+        "2026-11-04": 0,
+        "2026-11-05": 0
+      },
+      "excluded_count": 0,
+      "exclusions_by_reason": {},
+      "source_limitation": "List excludes strikes and past assemblies and may omit short-notice assemblies. JSON Dateidatum is 29 Oct 2026; supplied copy retrieved 30 Oct. Withdrawn/cancelled and prohibited entries excluded.",
+      "capture_fidelity": "supplied_downloaded_response_copy"
+    },
+    {
+      "city": "Rostock",
+      "listed_assemblies": 3,
+      "in_window_rows": 3,
+      "population": 205307,
+      "population_vintage": "2024-12-31",
+      "per_100k": 1.461226358575207,
+      "per_100k_display": "1.461",
+      "by_date": {
+        "2026-10-30": 1,
+        "2026-10-31": 2,
+        "2026-11-01": 0,
+        "2026-11-02": 0,
+        "2026-11-03": 0,
+        "2026-11-04": 0,
+        "2026-11-05": 0
+      },
+      "excluded_count": 0,
+      "exclusions_by_reason": {},
+      "source_limitation": "Lower-fidelity research-tool text extract, retrieved 30 Oct 2026 according to preparation notes. Direct connection timeout reported in preparation. No original HTTP bytes captured here; absence from extract does not establish no activity.",
+      "capture_fidelity": "research_tool_text_extract"
+    }
+  ]
+}

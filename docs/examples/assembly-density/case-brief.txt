@@ -1,0 +1,48 @@
+Public workflow brief, based on the recorded example
+
+Goal: compare published planned assembly occurrences in Berlin, Dresden and
+Rostock for 30 October through 5 November 2026 inclusive, Europe/Berlin.
+Calculate listed scheduled occurrences per 100,000 official residents. Create
+an actual map and a source-to-KPI graph of the recorded provenance.
+
+The source references in sources.json identify the frozen research versions
+used in the video. Their original response bodies and event records are not
+included. Live source URLs can change; do not claim they reproduce the original
+versions without matching captured hashes. For a new study, choose an explicit
+current window and supply source copies whose use and storage are authorized.
+
+Work in a separate consuming project. Apply the installed Trace skills and the
+provided events/population evidence contracts. Capture the actual source bytes
+before relying on them, preserving origin and retrieval representation. Bind
+observations to precise row, index, line or cell locations. Do not seed evidence
+from the published graph IDs or infer backing from structural proximity alone.
+
+Use one common dated official population vintage for all three cities; keep its
+date visible and distinguish official totals from municipal register figures.
+Count dated scheduled starts, not attendance or organisers. Retain repeated
+vigils on different listed dates. Exclude exact duplicates and explicitly
+cancelled/prohibited entries, recording the rules and excluded totals. Missing
+or unavailable coverage is unknown, not zero.
+
+Publication rules and representations matter. Dresden excludes strikes and can
+omit short-notice assemblies. The recorded Rostock input was a lower-fidelity
+research-tool text extract, not original HTTP bytes; preserve that distinction.
+A retained snapshot establishes which bytes were used, not source completeness
+or factual accuracy. Do not silently substitute a different version.
+
+Register only the scoped observations needed for the analysis. Use coherent,
+precisely located evidence batches. Validate the actual inputs before
+calculation, and retain code/concrete inputs with xyle-trace-run when the
+standard-library Python/JSON contract fits. Attempt a matching retained replay
+and independently verify the arithmetic and source counts.
+
+For the map, use verified city coordinates and contextual geography. City rates
+are not an interpolated surface over unsurveyed areas; streets are not a
+population denominator. Keep display-source origins distinct from numeric
+inputs. The source graph must project real recorded paths, with readable labels.
+
+Finish with results, source/version limitations and actual validation/health
+outcomes. Distinguish managed numeric replay from reported presentation runs.
+Preserve real failures and unresolved gaps; do not weaken the policy or modify
+inputs merely to obtain a desired total. Any claim review is by the agent unless
+a human actually reviews it. Publish only a separately reviewed, minimized view.
