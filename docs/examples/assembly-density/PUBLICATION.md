@@ -13,7 +13,7 @@ Trace run. It is not a copy of the consuming project or its private store.
   Cuts condense time; redactions change local details only, not tool outcomes,
   calculations or city results.
 
-The current revision adds the approved logo in the editorial header during setup
+The current revision uses the approved Crosspoint logo in the editorial header during setup
 and tool activity. The underlying recording and result scenes are unchanged.
 The standalone map and source-graph SVGs now carry the logo as well; their data
 and dependency paths are unchanged. Prior reviewed GIF hashes remain approved
@@ -59,9 +59,9 @@ extraction. The standard-library example checks the published ratio arithmetic.
 
 Reviewed GIF: `.github/assets/codex-workflow.gif`
 
-SHA-256: `dbc3069d7dcdaf4c6da182545ce79c125447cdbf95e72948824146f48f1368fe`
+SHA-256: `54886d4d3396dde2e3aefe241da4556e0dbd0c80a1a1608aab6514b157a60569`
 
-Size: 7,040,530 bytes. Dimensions: 1280 × 900. Silent, looping GIF.
+Size: 7,036,737 bytes. Dimensions: 1280 × 900. Silent, looping GIF.
 
 The numeric replay guarantee applies to the original retained calculation in its
 recorded environment. Rendering/export runs remain reported capture; one failed
