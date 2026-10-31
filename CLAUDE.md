@@ -85,7 +85,11 @@ the packaged demo, capture, skills, and project discovery.
   portable project handoffs.
 - `docs/agent-acceptance.md` — bounded live-host observations and acceptance gaps.
 - `docs/oev-example-brief.md` — the brief for a separate consuming repository;
-  keep its analysis, geospatial dependencies, data, and video assets outside this toolkit.
+  keep its analysis, geospatial dependencies, raw data and production media outside
+  this toolkit. Reviewed aggregate publication examples may live in `docs/examples/`;
+  README media must satisfy the exact-path/size/hash exception in the repository
+  policy and its documented frame/metadata review. This does not permit raw captures,
+  event-level records, session logs or retained stores.
 - `docs/concept.md` — the full project concept: problem, domain model, MCP
   surface, risks, and design considerations.
 - `docs/core-contract.md` — current implementation behavior, metadata

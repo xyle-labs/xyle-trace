@@ -1,6 +1,7 @@
 """Exercise the repository path policy against a real Git index and history."""
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -8,6 +9,7 @@ from pathlib import Path
 import pytest
 
 CHECK = Path(__file__).resolve().parents[1] / "scripts" / "check_repo.py"
+REVIEWED_GIF = ".github/assets/codex-workflow.gif"
 
 
 @pytest.fixture
@@ -182,4 +184,60 @@ def test_tree_snapshot_refs_are_scanned(repo):
     tree = subprocess.check_output(["git", "write-tree"], cwd=repo, text=True).strip()
     subprocess.run(["git", "update-ref", "refs/checkpoints/fixture", tree], cwd=repo, check=True)
     subprocess.run(["git", "rm", "-f", "notes.md"], cwd=repo, check=True)
+    assert check(repo, "--history").returncode == 1
+
+
+def copy_reviewed_gif(repo):
+    target = repo / REVIEWED_GIF
+    target.parent.mkdir(parents=True)
+    shutil.copyfile(CHECK.parents[1] / REVIEWED_GIF, target)
+    return target
+
+
+@pytest.mark.parametrize("scan", ["working", "staged", "history"])
+def test_exact_reviewed_media_is_allowed_in_each_scan(repo, scan):
+    copy_reviewed_gif(repo)
+    if scan != "working":
+        subprocess.run(["git", "add", "."], cwd=repo, check=True)
+    if scan == "history":
+        subprocess.run(["git", "-c", "commit.gpgsign=false", "commit", "-qm", "reviewed"],
+                       cwd=repo, check=True)
+    assert check(repo, *([] if scan == "working" else [f"--{scan}"])).returncode == 0
+
+
+def test_a_second_binary_path_is_not_approved_by_extension_or_identical_bytes(repo):
+    source = copy_reviewed_gif(repo)
+    shutil.copyfile(source, repo / "unreviewed.gif")
+    subprocess.run(["git", "add", "."], cwd=repo, check=True)
+    assert check(repo, "--staged").returncode == 1
+
+
+@pytest.mark.parametrize("append", [False, True])
+def test_reviewed_path_rejects_changed_or_appended_bytes_even_with_safe_working_copy(repo, append):
+    target = copy_reviewed_gif(repo)
+    approved = target.read_bytes()
+    changed = approved + b"unreviewed metadata" if append else approved[:-1] + b"!"
+    assert changed != approved
+    target.write_bytes(changed)
+    subprocess.run(["git", "add", "."], cwd=repo, check=True)
+    target.write_bytes(approved)
+    assert check(repo, "--staged").returncode == 1
+
+
+def test_reviewed_media_cannot_be_marked_executable(repo):
+    copy_reviewed_gif(repo)
+    subprocess.run(["git", "add", "."], cwd=repo, check=True)
+    subprocess.run(["git", "update-index", "--chmod=+x", REVIEWED_GIF], cwd=repo, check=True)
+    assert check(repo, "--staged").returncode == 1
+
+
+def test_restoring_approved_gif_does_not_hide_unreviewed_historical_bytes(repo):
+    target = copy_reviewed_gif(repo)
+    approved = target.read_bytes()
+    for content in [approved, approved + b"unreviewed metadata", approved]:
+        target.write_bytes(content)
+        subprocess.run(["git", "add", "."], cwd=repo, check=True)
+        subprocess.run(["git", "-c", "commit.gpgsign=false", "commit", "-qm", "fixture"],
+                       cwd=repo, check=True)
+    assert check(repo).returncode == 0
     assert check(repo, "--history").returncode == 1

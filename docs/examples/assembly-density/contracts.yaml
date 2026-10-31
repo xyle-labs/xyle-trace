@@ -1,0 +1,11 @@
+# Same core evidence policy used before the recorded analysis began.
+- dataset: events
+  require:
+    every_row: [evidence_backed]
+    evidence: exact_locator
+  blocks: [analysis.*]
+- dataset: population
+  require:
+    every_row: [evidence_backed]
+    evidence: exact_locator
+  blocks: [analysis.*]

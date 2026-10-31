@@ -1,117 +1,123 @@
-# xyle-trace
+# Xyle Trace
 
-An agent-native provenance toolkit: your AI coding agent records where every
-source, dataset, transformation, and claim came from as it works, so you can
-ask a question like "where does this number come from?" and get a real answer.
+**Know where your agent’s results came from.**
+
+Provenance skills and local tools for **Claude Code and Codex**. Your coding
+agent records sources, evidence and calculations as it works, so “where did
+this number come from?” has an inspectable answer.
 
 [![CI](https://github.com/xyle-labs/xyle-trace/actions/workflows/ci.yml/badge.svg)](https://github.com/xyle-labs/xyle-trace/actions/workflows/ci.yml)
 
-## What it does
+[Quickstart](docs/quickstart.md) · [Agent setup](docs/agent-setup.md) ·
+[Real example](docs/examples/assembly-density/README.md) · [Core contract](docs/core-contract.md)
 
-- Records sources, immutable snapshots, transformations, derived datasets, and
-  evidence-backed claims as an agent works, through five installed skills and
-  an eight-tool MCP server, or directly through typed Python and CLI interfaces.
-- Enforces provenance as a precondition for computation: a project's
-  `contracts.yaml` blocks a run until its inputs are backed by exact evidence
-  or a recorded assumption, instead of relying on the agent to remember.
-- Answers upstream, downstream, `explain`, `impact`, and `content` queries
-  against a deterministic, local-first SQLite graph. Storage needs no hosted
-  service. An agent host receives the data returned through MCP; its privacy
-  settings and model processing remain the host's responsibility.
-- Explains selected results using retained input versions, shows pending review
-  and changed outputs, and provides a connected offline explorer and selected
-  HTML reports. Portable handoffs preserve the graph and optionally retained
-  evidence, without restoring executable working files.
+![Real terminal setup, a Codex prompt, Trace source capture and evidence checks, then the resulting map and source-to-KPI graph](.github/assets/codex-workflow.gif)
 
-## See it work
+*34-second silent recording: install → prompt → capture → calculate → inspect.
+Time condensed; local machine details redacted.*
 
-```
-$ xyle-trace explain --project managed-demo --db .lineage/graph.db \
-    --node artifact:6313a0dff677badf
-{
-  "node": "artifact:6313a0dff677badf",
-  "upstream": [
-    "run:0998654269f9e908", "transformation:8c12985bbc8abd68",
-    "dataset:7f76069f42d3d874", "evidence_link:f8962d2860a94d96",
-    "source_snapshot:374d0131c85c61f0", "source:96f0bab3dcf7be34"
-  ],
-  "sources": ["source:96f0bab3dcf7be34"]
-}
-```
+The [real-data example](docs/examples/assembly-density/README.md) compares three
+German cities’ published assembly listings per 100,000 residents. Explore the
+[map](docs/examples/assembly-density/map.svg),
+[source graph](docs/examples/assembly-density/source-graph.svg) and
+[reviewed aggregate results](docs/examples/assembly-density/summary.json).
 
-That output — trimmed here to the ancestor IDs; the full response also carries
-node/edge metadata and revisions — is real, produced by the retained-execution
-example in [the quickstart](docs/quickstart.md). The artifact traces back
-through a run, a transformation, a dataset, an evidence link, a source
-snapshot, and finally the one source it came from.
+## Get started
 
-## Install
-
-Requires Python 3.11+ and Git. Until the first PyPI release, install from the
-public repository:
+Requires **Python 3.11+ and Git**. Use a project virtual environment. Until the
+first PyPI release, install from the public repository:
 
 ```bash
-pip install 'xyle-trace[mcp] @ git+https://github.com/xyle-labs/xyle-trace.git@main'
-xyle-trace new --project demo --path ./demo
+python -m pip install 'xyle-trace[mcp] @ git+https://github.com/xyle-labs/xyle-trace.git@main'
+xyle-trace new --project demo --path ./demo --host codex
+cd demo
+codex
 ```
 
-For a complete synthetic calculation, correction gate, and verified historical
-replay from the installed package:
+For Claude Code, use `--host claude` and start `claude`; `--host both` installs
+configuration for both hosts. `main` tracks unreleased development: use a
+reviewed commit ID for a repeatable installation.
+
+`new` creates the local store, five skills, MCP configuration, project guidance
+and a starting `contracts.yaml`. Configure that policy for your actual input
+datasets before analytical work, then ask your agent to use Xyle Trace to track
+sources, calculations and the resulting claims.
+
+Want a complete worked calculation first?
 
 ```bash
 xyle-trace demo --project demo --path ./worked-demo
 ```
 
-Open `worked-demo/lineage.html` to inspect the result. The demo deliberately
-leaves a corrected input unresolved so the current-data gate remains visible.
-See [capture, review, sharing, and handoff](docs/workflow.md) for the full workflow.
+Open `worked-demo/lineage.html`. This synthetic example includes a correction,
+a blocked current-data run and a verified historical replay. The
+[quickstart](docs/quickstart.md) walks through the actual output.
 
-`main` tracks unreleased development; replace it with a reviewed commit ID
-when you need a repeatable installation.
+## What it keeps
 
-`new` scaffolds a project: local store, the five skills, MCP configuration for
-Claude Code or Codex, and a starting `contracts.yaml`. Full walkthrough,
-including what `validate` reports before any evidence exists and a worked
-run with verified replay, in **[the quickstart](docs/quickstart.md)**.
+| Question | Recorded trail |
+| --- | --- |
+| Where did this value come from? | Source versions, located evidence and dataset records |
+| Were the inputs backed? | Explicit contracts and pre-computation evidence gates |
+| How was this result calculated? | Transformations, inputs, parameters, run outcomes and output hashes |
+| Can this calculation be repeated? | Retained code and concrete inputs for supported local runs, with matching replay checks |
+| What changes if a source changes? | Upstream explanations, downstream impact and claims needing review |
 
-## Why it's shaped this way
+Five skills guide the workflow; an eight-tool MCP server, typed Python service
+and CLI record the material the agent submits. The local SQLite graph and
+retained files need no hosted storage service. Your agent host receives the data
+returned through MCP; its privacy settings and model processing still apply.
 
-The product reasoning and domain model are in **[docs/concept.md](docs/concept.md)**.
-Current implementation behavior, metadata requirements, and CLI/MCP details
-are in **[docs/core-contract.md](docs/core-contract.md)**.
+## Inspect a result
 
-## Roadmap
+Use an artifact ID returned by your agent or the worked demo:
 
-The product scope is reliable capture, exact result explanations, review and
-change impact, and sharing selected findings. Portable projects support this
-workflow. See **[ROADMAP.md](ROADMAP.md)** for implementation and acceptance
-boundaries. Domain analysis and specialist dependencies belong in consuming
-projects.
+```bash
+xyle-trace explain --project demo --db ./worked-demo/.lineage/graph.db \
+  --node ARTIFACT_ID
+```
 
-## Limitations
+Replace `ARTIFACT_ID` with that returned ID. The explanation traces the artifact
+through its run, transformation, dataset, evidence link and captured source.
+See the [quickstart](docs/quickstart.md) for the worked workflow.
+Selected reports and offline views make those connections readable. Portable
+handoffs can preserve the graph and retained evidence without restoring
+executable working files.
 
-The full detail is in [core-contract.md's limitations
-section](docs/core-contract.md#limitations); the short version:
+## Documentation
 
-- MCP `record_run` is **reported** capture and is never reproducible; only
-  `xyle-trace-run` executes and verifies.
-- The local runner replays trusted, self-contained standard-library Python
-  programs. It is a replay contract, not an OS sandbox or a distributable
-  environment image.
-- `verified_locator` proves an evidence anchor occurs in bytes that hash to
-  the recorded content — it does not prove the passage supports the value.
-  Binary payloads without a text layer report as unverifiable, honestly,
-  rather than passed or failed.
-- Node IDs are derived from the project ID; renaming a project re-derives
-  them. Choose the project name deliberately.
-- Live agent adherence depends on the host and task. Protocol compatibility
-  is tested; [bounded live-host findings](docs/agent-acceptance.md) describe
-  observed behavior and the remaining acceptance gaps.
-- The toolkit records the provenance an agent reports. It cannot detect a
-  source the agent never mentioned.
+| Start here | Go deeper |
+| --- | --- |
+| [Quickstart](docs/quickstart.md) | [Execution and retained replay](docs/execution.md) |
+| [Claude Code / Codex setup](docs/agent-setup.md) | [Capture, review and sharing](docs/workflow.md) |
+| [Real-data example](docs/examples/assembly-density/README.md) | [Core contract and limitations](docs/core-contract.md) |
+| [Product concept](docs/concept.md) | [Roadmap](ROADMAP.md) |
+
+## Limits
+
+Trace records what the agent submits; it cannot detect an unreported source.
+Captured bytes and valid locators do not prove factual accuracy or semantic
+support for a claim.
+
+- MCP `record_run` is **reported** capture and is never reproducible. Only
+  `xyle-trace-run` executes and verifies retained local calculations.
+- The retained runner supports trusted, self-contained standard-library
+  Python/JSON programs. It is a replay contract, not an OS sandbox or a
+  distributable environment image.
+- `verified_locator` checks an anchor against the captured bytes. A binary
+  source without a text layer remains unverifiable under that check.
+- Node IDs depend on the project ID; choose the project name deliberately.
+- Live agent adherence depends on the host and task. See the
+  [observed host findings](docs/agent-acceptance.md) and
+  [full contract](docs/core-contract.md) for the practical limits.
+
+Domain workloads belong in separate consuming projects. The published example
+contains reviewed aggregates and selected paths; raw source captures, agent
+logs and retained stores stay outside this repository.
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Third-party example data
+attributions are listed with the [example](docs/examples/assembly-density/README.md#coverage-and-attribution).
 
 Project contact: [jesse@xyle.de](mailto:jesse@xyle.de).

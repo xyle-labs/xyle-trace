@@ -58,8 +58,20 @@ convenience filters; `git add -f` can bypass them, which is why hooks and CI
 also enforce a private-path policy.
 
 Agent state directories, chat exports, JSONL, logs, database files, archives,
-office documents, and PDFs are blocked. The public tree is UTF-8 text only,
-with a 1 MiB per-file review limit; symlinks and submodules are rejected.
+office documents, and PDFs are blocked. Public text has a 1 MiB per-file review
+limit; symlinks and submodules are rejected. The only binary exception is
+explicitly reviewed media pinned by exact repository path, byte size and
+SHA-256 in `scripts/check_repo.py`. An extension alone never approves a file.
+
+The [recorded example's publication review](docs/examples/assembly-density/PUBLICATION.md)
+documents the current GIF exception. Review every displayed frame and hidden
+metadata, redact local/private details, and scan recognized image text as well
+as ordinary files before proposing another media revision. Changed bytes,
+executable media, or the same bytes at another path remain blocked. Keep prior
+approved hashes when replacing reviewed media so full-history checks remain valid.
+Raw production recordings, source captures and consuming-project stores stay
+outside the repository; publish selected aggregates and graph paths only after
+separate review.
 The maintained plugin manifests, skills, and `.claude/settings.json` are public
 source, not session storage. The history check reads every unique file version
 across all locally available refs and checks commit and annotated-tag metadata.
