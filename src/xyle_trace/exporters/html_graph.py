@@ -3,6 +3,7 @@
 import json
 from urllib.parse import urlsplit, urlunsplit
 
+from xyle_trace.branding import brand_header, favicon_link
 from xyle_trace.core.revisions import revision
 from xyle_trace.models.entities import EDGE_DIRECTION
 
@@ -93,17 +94,23 @@ def render_html(
         ensure_ascii=True,
         sort_keys=True,
     ).replace("<", "\\u003c").replace("&", "\\u0026").replace(">", "\\u003e")
-    return _PAGE.replace("__PAYLOAD__", payload)
+    # Insert trusted artwork before graph data so a graph string resembling a
+    # template marker remains inert and cannot introduce SVG into the JSON.
+    return _PAGE.replace("__XYLE_BRAND__", brand_header()).replace(
+        "__XYLE_FAVICON__", favicon_link()
+    ).replace("__PAYLOAD__", payload)
 
 
 _PAGE = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Lineage explorer</title>
+<title>Lineage explorer · Xyle Trace</title>
+__XYLE_FAVICON__
 <style>
 :root{font:16px/1.5 system-ui,sans-serif;color:#19332d;background:#f4f6f3}
 *{box-sizing:border-box}body{margin:0}header,main{padding:1.2rem;max-width:1280px;margin:auto}
 h1,h2,h3{line-height:1.2}h1{margin:.1rem 0}h2{margin:1.4rem 0 .5rem}
+.xyle-brand{margin-bottom:1rem}.xyle-brand svg{display:block;width:220px;max-width:100%;height:auto}
 p{max-width:80ch}small,.muted{color:#4f6259}button,input,select{font:inherit}
 button{border:1px solid #839a8e;background:white;color:inherit;border-radius:5px;padding:.55rem .7rem;cursor:pointer}
 button:hover,button:focus-visible{outline:3px solid #287857;outline-offset:2px}
@@ -136,7 +143,7 @@ svg text{fill:#19332d;font:14px system-ui,sans-serif}svg .kind{font-size:11px;fi
 @media(max-width:800px){#layout{grid-template-columns:1fr}header,main{padding:1rem}}
 @media print{body{background:white}header,main{max-width:none}#controls,#back{display:none}#layout{display:block}#diagram{max-height:none;overflow:visible}article,.surface{break-inside:avoid}button{border:0}}
 </style></head><body>
-<header><h1>Lineage explorer</h1><p id="project"></p>
+<header>__XYLE_BRAND__<h1>Lineage explorer</h1><p id="project"></p>
 <p>Start with a result, then follow its calculation, inputs, and evidence. A connection records provenance; it does not certify that the evidence is complete or suitable.</p></header>
 <main><h2>Results</h2><div id="results" aria-label="Results"></div>
 <p id="link-state" role="alert"></p>

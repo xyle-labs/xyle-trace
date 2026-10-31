@@ -5,6 +5,7 @@ import json
 import re
 from html import escape
 
+from xyle_trace.branding import brand_header, favicon_link
 from xyle_trace.core.revisions import revision
 from xyle_trace.exporters.html_graph import safe_metadata
 from xyle_trace.models.entities import EDGE_DIRECTION
@@ -202,11 +203,13 @@ def render_report(
         for node_id in dict.fromkeys(selected_ids)
     )
     return f'''<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>{heading}</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>{heading} · Xyle Trace</title>
+{favicon_link()}
 <style>
 :root{{font:16px/1.5 system-ui,sans-serif;color:#19332d;background:#f4f6f3}}
 *{{box-sizing:border-box}}body{{margin:0}}main{{max-width:950px;margin:auto;padding:2rem}}
 h1,h2,h3{{line-height:1.2}}h1{{margin:.2rem 0}}article{{background:white;border:1px solid #cedbd1;padding:1.5rem;margin:2rem 0;break-inside:avoid}}
+.xyle-brand{{margin-bottom:1rem}}.xyle-brand svg{{display:block;width:220px;max-width:100%;height:auto}}
 article section{{border-top:1px solid #dbe7de;padding:.4rem 0}}p{{overflow-wrap:anywhere}}
 .value{{font-size:1.4rem;font-weight:700}}.muted,.eyebrow{{color:#50645b}}.eyebrow{{text-transform:uppercase;letter-spacing:.08em;font-size:.8rem}}
 .notice{{padding:.6rem;border-left:4px solid #a76c21;background:#fff6e8}}
@@ -216,6 +219,6 @@ dt{{font-weight:600}}dd{{margin:0;overflow-wrap:anywhere}}li{{margin:.35rem 0;ov
 a{{color:#135d40}}a:focus-visible{{outline:3px solid #287857}}
 @media(max-width:600px){{main{{padding:1rem}}article{{padding:1rem}}dl{{grid-template-columns:1fr}}}}
 @media print{{:root{{background:white}}main{{max-width:none;padding:0}}article{{border:0;border-top:2px solid #19332d;margin:1rem 0;page-break-inside:auto}}a{{color:inherit;text-decoration:none}}}}
-</style></head><body><main><header><h1>{heading}</h1><p>Project {_text(graph.get("project_id"))}. Selected results and recorded upstream provenance.</p>
+</style></head><body><main><header>{brand_header()}<h1>{heading}</h1><p>Project {_text(graph.get("project_id"))}. Selected results and recorded upstream provenance.</p>
 <p>Generated from this export. Review status, edge qualifiers, and omissions remain part of the interpretation.</p></header>
 <nav aria-label="Report results"><h2>Contents</h2><ol>{links}</ol></nav>{''.join(sections)}</main></body></html>'''

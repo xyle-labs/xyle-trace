@@ -1,4 +1,9 @@
-# Xyle Trace
+<h1 id="xyle-trace">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="src/xyle_trace/assets/brand/logo-dark.svg">
+    <img src="src/xyle_trace/assets/brand/logo.svg" alt="Xyle Trace" width="460">
+  </picture>
+</h1>
 
 **Know where your agent’s results came from.**
 
@@ -119,5 +124,7 @@ logs and retained stores stay outside this repository.
 
 Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Third-party example data
 attributions are listed with the [example](docs/examples/assembly-density/README.md#coverage-and-attribution).
+
+[Logo and brand assets](docs/branding.md).
 
 Project contact: [jesse@xyle.de](mailto:jesse@xyle.de).

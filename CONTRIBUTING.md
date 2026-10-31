@@ -64,7 +64,8 @@ explicitly reviewed media pinned by exact repository path, byte size and
 SHA-256 in `scripts/check_repo.py`. An extension alone never approves a file.
 
 The [recorded example's publication review](docs/examples/assembly-density/PUBLICATION.md)
-documents the current GIF exception. Review every displayed frame and hidden
+and [brand review](docs/branding.md#publication-review) document the exact GIF
+and social-card exceptions. Review every displayed frame and hidden
 metadata, redact local/private details, and scan recognized image text as well
 as ordinary files before proposing another media revision. Changed bytes,
 executable media, or the same bytes at another path remain blocked. Keep prior

@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import tomllib
 import zipfile
+from importlib.resources import files
 from pathlib import Path
 
 
@@ -31,6 +32,10 @@ def workflow(directory):
     assert report["correction_blocked"] and report["replay_verified"]
     assert not report["current_validation"]["valid"]
     assert (root / "lineage.html").is_file()
+    page = (root / "lineage.html").read_text()
+    assert 'class="xyle-brand"' in page and 'href="data:image/svg+xml,' in page
+    for name in ("logo.svg", "logo-dark.svg", "mark.svg", "favicon.svg"):
+        assert files("xyle_trace").joinpath("assets", "brand", name).is_file()
     assert len(list(root.glob(".agents/skills/*/SKILL.md"))) == 5
     assert len(list(root.glob(".claude/skills/*/SKILL.md"))) == 5
     tomllib.loads((root / ".codex/config.toml").read_text())

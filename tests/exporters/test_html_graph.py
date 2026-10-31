@@ -59,7 +59,10 @@ def test_result_first_explorer_has_offline_inspection_and_versioned_links():
     assert 'addEventListener("hashchange"' in page
     assert 'createElementNS' in page
     assert 'Provisional' in page
-    assert '<script src=' not in page and '<link ' not in page
+    assert '<script src=' not in page
+    resources = re.findall(r'<link\b[^>]*>', page)
+    assert len(resources) == 1
+    assert 'rel="icon"' in resources[0] and 'href="data:image/svg+xml,' in resources[0]
 
 
 def test_explorer_omits_source_bytes_and_bundle_code_from_embedded_data():
@@ -153,7 +156,8 @@ def test_large_diagram_branch_plan_expands_and_pages_without_losing_nodes():
                  for src, dst in edges], "datasets": {}}
     page = render_html(graph, [])
     assert 'id="branches"' in page and 'id="diagram-more"' in page
-    assert 'role="group"' in page and 'role="img"' not in page
+    diagram = re.search(r'<div\b[^>]*id="diagram"[^>]*>', page)[0]
+    assert 'role="group"' in diagram and 'role="img"' not in diagram
     script = re.search(r"<script>\n(.*?)</script>", page, re.DOTALL)[1]
     planner = re.search(
         r"(function walk\(.*?\n}\nfunction diagramPlan\(.*?\n})\nfunction ", script, re.DOTALL
